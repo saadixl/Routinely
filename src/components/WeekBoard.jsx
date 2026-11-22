@@ -4,86 +4,75 @@ import {
   useDraggable, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core';
 import { useData } from '../context/DataContext';
+import DayPicker from './DayPicker';
+import Pill from './Pill';
 
-function DayCard({ t, overlay, dragging, ...rest }) {
-  const count = (t.activities || []).length;
+function Draggable({ id, dayTemplateId, children }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id, data: { dayTemplateId } });
+  // Keyboard users pick via the menu instead; keep the wrapper out of the tab order.
+  const { tabIndex, role, ...a11y } = attributes;
   return (
-    <div className={`day-card${overlay ? ' overlay' : ''}${dragging ? ' dragging' : ''}`} style={{ background: t.color }} {...rest}>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-      <span className="count">{count}</span>
-    </div>
+    <span ref={setNodeRef} className={`drag-pill${isDragging ? ' dragging' : ''}`} {...a11y} {...listeners}>
+      {children}
+    </span>
   );
 }
 
-function DraggableDay({ id, t }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id, data: { dayTemplateId: t.id } });
-  return <DayCard ref={setNodeRef} t={t} dragging={isDragging} {...attributes} {...listeners} />;
-}
-
-function Slot({ index, slot, onAssign, dayTemplates, dayTemplateById }) {
+function DayRow({ index, row, onAssign }) {
+  const { dayTemplateById, activityById } = useData();
   const { setNodeRef, isOver } = useDroppable({ id: `drop:${index}` });
-  const t = slot.dayTemplateId ? { id: slot.dayTemplateId, ...dayTemplateById[slot.dayTemplateId] } : null;
-  const valid = t && dayTemplateById[slot.dayTemplateId];
+  const valid = row.dayTemplateId && dayTemplateById[row.dayTemplateId] ? row.dayTemplateId : null;
+
+  const picker = (
+    <DayPicker value={valid} onChange={(id) => onAssign(index, id)} onReset={row.onReset} placeholder="Rest day" />
+  );
 
   return (
-    <div ref={setNodeRef} className={`slot${isOver ? ' over' : ''}${valid ? ' filled' : ''}${slot.today ? ' today' : ''}`}>
-      <div className="slot-label">
-        <span>{slot.label}</span>
-        {slot.sub && <span className="date">{slot.sub}</span>}
+    <div ref={setNodeRef} className={`day-row${isOver ? ' over' : ''}${row.today ? ' today' : ''}`}>
+      <div className="when">
+        <div className="wd">{row.label}</div>
+        {row.sub && <div className="dt">{row.sub}</div>}
       </div>
-      {valid ? <DraggableDay id={`slot:${index}`} t={t} /> : <div className="slot-empty">Drop a day</div>}
-      {(slot.note || slot.onReset) && (
-        <div className="faint small slot-note">
-          {slot.note}
-          {slot.onReset && <button className="link-btn" onClick={slot.onReset}>Reset</button>}
+      <div className="slot">
+        {valid ? <Draggable id={`row:${index}`} dayTemplateId={valid}>{picker}</Draggable> : picker}
+        {row.changed && <span className="changed">Changed</span>}
+      </div>
+      {valid && (
+        <div className="emoji-strip" aria-hidden="true">
+          {(dayTemplateById[valid].activities || []).filter((id) => activityById[id]).slice(0, 6).map((id) => (
+            <span key={id} title={activityById[id].name}>{activityById[id].emoji}</span>
+          ))}
         </div>
       )}
-      <select
-        className="slot-select"
-        value={valid ? slot.dayTemplateId : ''}
-        onChange={(e) => onAssign(index, e.target.value || null)}
-        aria-label={`Day template for ${slot.label}`}
-      >
-        <option value="">— None —</option>
-        {dayTemplates.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-      </select>
     </div>
   );
 }
 
 /**
- * Seven droppable day slots plus a palette of draggable day templates.
- *  - drag palette → slot: assign
- *  - drag slot → slot: swap the two days
- *  - drag slot → outside (when `clearOnDropOutside`): clear the slot
- * Every slot also has a select as a tap-friendly fallback.
+ * Seven day rows. Pick a day type from each row's menu, or drag a day type
+ * from the palette (or from another row — the two swap).
  */
-export default function WeekBoard({ slots, onAssign, clearOnDropOutside = false }) {
+export default function WeekBoard({ rows, onAssign }) {
   const { dayTemplates, dayTemplateById } = useData();
   const [active, setActive] = useState(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
     useSensor(KeyboardSensor)
   );
 
   const onDragEnd = ({ active: a, over }) => {
     setActive(null);
+    if (!over) return;
     const dtId = a.data.current?.dayTemplateId;
-    const from = String(a.id).startsWith('slot:') ? Number(String(a.id).slice(5)) : null;
-    if (!over) {
-      if (from !== null && clearOnDropOutside) onAssign(from, null);
-      return;
-    }
     const to = Number(String(over.id).slice(5));
-    if (from === null) {
-      onAssign(to, dtId);
-    } else if (from !== to) {
-      const targetDt = slots[to].dayTemplateId && dayTemplateById[slots[to].dayTemplateId] ? slots[to].dayTemplateId : null;
-      onAssign(to, dtId);
-      onAssign(from, targetDt);
-    }
+    const from = String(a.id).startsWith('row:') ? Number(String(a.id).slice(4)) : null;
+    if (from === null) return onAssign(to, dtId);
+    if (from === to) return undefined;
+    const target = rows[to].dayTemplateId && dayTemplateById[rows[to].dayTemplateId] ? rows[to].dayTemplateId : null;
+    onAssign(to, dtId);
+    return onAssign(from, target);
   };
 
   const activeT = active ? dayTemplateById[active] : null;
@@ -96,17 +85,21 @@ export default function WeekBoard({ slots, onAssign, clearOnDropOutside = false 
       onDragCancel={() => setActive(null)}
       onDragEnd={onDragEnd}
     >
-      <div className="palette">
-        {dayTemplates.length === 0 && <span className="muted small">Create day templates first, then drag them onto the week.</span>}
-        {dayTemplates.map((t) => <DraggableDay key={t.id} id={`pal:${t.id}`} t={t} />)}
-      </div>
-      <div className="week-board">
-        {slots.map((slot, i) => (
-          <Slot key={i} index={i} slot={slot} onAssign={onAssign} dayTemplates={dayTemplates} dayTemplateById={dayTemplateById} />
-        ))}
+      {dayTemplates.length > 0 && (
+        <div className="palette">
+          <span className="hint">Drag onto a day</span>
+          {dayTemplates.map((t) => (
+            <Draggable key={t.id} id={`pal:${t.id}`} dayTemplateId={t.id}>
+              <Pill color={t.color}>{t.name}</Pill>
+            </Draggable>
+          ))}
+        </div>
+      )}
+      <div className="group week-list">
+        {rows.map((row, i) => <DayRow key={i} index={i} row={row} onAssign={onAssign} />)}
       </div>
       <DragOverlay dropAnimation={null}>
-        {activeT ? <DayCard t={activeT} overlay /> : null}
+        {activeT ? <span className="drag-pill overlay pill" style={{ '--c': activeT.color }}><span className="dot" /><span className="label">{activeT.name}</span></span> : null}
       </DragOverlay>
     </DndContext>
   );

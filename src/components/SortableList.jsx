@@ -7,16 +7,16 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripIcon } from './Icons';
 
-function Row({ id, children }) {
+function Row({ id, children, rowClassName }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
   return (
     <div
       ref={setNodeRef}
-      className="sortable-item"
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 2 : 'auto', position: 'relative' }}
+      className={rowClassName}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.85 : 1, zIndex: isDragging ? 2 : 'auto', position: 'relative', boxShadow: isDragging ? 'var(--shadow-lg)' : undefined }}
     >
       <button ref={setActivatorNodeRef} className="handle" aria-label="Drag to reorder" {...attributes} {...listeners}>
-        <GripIcon width={18} height={18} />
+        <GripIcon width={16} height={16} />
       </button>
       {children}
     </div>
@@ -24,7 +24,7 @@ function Row({ id, children }) {
 }
 
 /** Vertical drag-to-reorder list. `items` are ids; `onReorder` receives the new id order. */
-export default function SortableList({ items, onReorder, renderItem }) {
+export default function SortableList({ items, onReorder, renderItem, className = 'group', rowClassName = 'list-row' }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } }),
@@ -39,8 +39,8 @@ export default function SortableList({ items, onReorder, renderItem }) {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        <div className="stack" style={{ gap: 6 }}>
-          {items.map((id) => <Row key={id} id={id}>{renderItem(id)}</Row>)}
+        <div className={className}>
+          {items.map((id) => <Row key={id} id={id} rowClassName={rowClassName}>{renderItem(id)}</Row>)}
         </div>
       </SortableContext>
     </DndContext>

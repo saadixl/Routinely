@@ -1,63 +1,66 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CheckIcon, DayIcon, LayersIcon, ListIcon, LogoutIcon, TodayIcon, WeekIcon } from './Icons';
+import Menu from './Menu';
+import { CheckIcon, LogoutIcon, SettingsIcon, TodayIcon, WeekIcon } from './Icons';
 
 const NAV = [
-  { to: '/', label: 'Today', Icon: TodayIcon, end: true },
-  { to: '/week', label: 'This week', short: 'Week', Icon: WeekIcon },
-  { to: '/week-templates', label: 'Week templates', short: 'Weeks', Icon: LayersIcon },
-  { to: '/days', label: 'Day templates', short: 'Days', Icon: DayIcon },
-  { to: '/activities', label: 'Activities', Icon: ListIcon },
+  { to: '/', label: 'Today', Icon: TodayIcon, match: (p) => p === '/' || p.startsWith('/day') },
+  { to: '/week', label: 'Week', Icon: WeekIcon, match: (p) => p.startsWith('/week') },
+  { to: '/setup', label: 'Setup', Icon: SettingsIcon, match: (p) => p.startsWith('/setup') },
 ];
 
 export function Brand() {
   return (
-    <div className="brand">
-      <span className="brand-mark"><CheckIcon width={18} height={18} strokeWidth={3} /></span>
+    <span className="brand">
+      <span className="brand-mark"><CheckIcon width={15} height={15} strokeWidth={3} /></span>
       Routinely
-    </div>
+    </span>
   );
+}
+
+function Avatar({ user }) {
+  if (user.photoURL) return <img className="avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />;
+  return <span className="avatar">{(user.displayName || user.email || '?')[0].toUpperCase()}</span>;
 }
 
 export default function Layout() {
   const { user, signOut } = useAuth();
+  const { pathname } = useLocation();
+  const links = (cls) =>
+    NAV.map(({ to, label, Icon, match }) => (
+      <NavLink key={to} to={to} className={() => (match(pathname) ? 'active' : '')}>
+        {cls === 'tab' && <Icon width={22} height={22} strokeWidth={match(pathname) ? 2.2 : 1.8} />}
+        {label}
+      </NavLink>
+    ));
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <Brand />
-        {NAV.map(({ to, label, Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className="nav-link">
-            <Icon /> {label}
-          </NavLink>
-        ))}
-        <div className="sidebar-footer">
-          {user.photoURL ? <img className="avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : <span className="avatar" />}
-          <div className="who">
-            <div>{user.displayName || 'You'}</div>
-            <div className="muted">{user.email}</div>
+    <>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <NavLink to="/" style={{ textDecoration: 'none' }}><Brand /></NavLink>
+          <nav className="segmented" aria-label="Main">{links('seg')}</nav>
+          <div className="topbar-end">
+            <Menu trigger={({ toggle }) => (
+              <button className="avatar-btn" onClick={toggle} aria-label="Account"><Avatar user={user} /></button>
+            )}>
+              {() => (
+                <>
+                  <div className="menu-head">
+                    <div style={{ fontWeight: 600 }}>{user.displayName || 'You'}</div>
+                    <div className="faint small">{user.email}</div>
+                  </div>
+                  <button className="menu-item" onClick={signOut}><LogoutIcon width={16} height={16} /> Sign out</button>
+                </>
+              )}
+            </Menu>
           </div>
-          <button className="btn ghost icon" onClick={signOut} title="Sign out" aria-label="Sign out"><LogoutIcon width={18} height={18} /></button>
         </div>
-      </aside>
-
-      <div>
-        <header className="mobile-top">
-          <Brand />
-          <button className="btn ghost sm" onClick={signOut}>Sign out</button>
-        </header>
-        <main className="main">
-          <Outlet />
-        </main>
-      </div>
-
-      <nav className="bottom-nav">
-        {NAV.map(({ to, label, short, Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className="nav-link">
-            <Icon /> {short || label}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+      </header>
+      <main className="main">
+        <Outlet />
+      </main>
+      <nav className="tabbar" aria-label="Main">{links('tab')}</nav>
+    </>
   );
 }

@@ -5,9 +5,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Today from './pages/Today';
 import ThisWeek from './pages/ThisWeek';
-import WeekTemplates from './pages/WeekTemplates';
-import DayTemplates from './pages/DayTemplates';
-import Activities from './pages/Activities';
+import Setup from './pages/Setup';
 
 function Loading() {
   return <div className="center-screen"><div className="spinner" /></div>;
@@ -23,9 +21,11 @@ function AppRoutes() {
         <Route path="day/:date" element={<Today />} />
         <Route path="week" element={<ThisWeek />} />
         <Route path="week/:start" element={<ThisWeek />} />
-        <Route path="week-templates" element={<WeekTemplates />} />
-        <Route path="days" element={<DayTemplates />} />
-        <Route path="activities" element={<Activities />} />
+        <Route path="setup" element={<Setup />} />
+        <Route path="setup/:tab" element={<Setup />} />
+        <Route path="activities" element={<Navigate to="/setup/activities" replace />} />
+        <Route path="days" element={<Navigate to="/setup/days" replace />} />
+        <Route path="week-templates" element={<Navigate to="/setup/weeks" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import Modal from '../components/Modal';
 import Empty from '../components/Empty';
+import Menu from '../components/Menu';
 import WeekBoard from '../components/WeekBoard';
-import { EditIcon, PlusIcon, StarIcon, TrashIcon } from '../components/Icons';
+import { EditIcon, LayersIcon, MoreIcon, PlusIcon, StarIcon, TrashIcon } from '../components/Icons';
 import { WEEKDAYS, slotWeekdays } from '../lib/dates';
 
 function NameModal({ title, initial = '', onSubmit, onClose }) {
@@ -20,13 +21,12 @@ function NameModal({ title, initial = '', onSubmit, onClose }) {
       title={title}
       onClose={onClose}
       actions={<>
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn primary" onClick={submit} disabled={!name.trim()}>Save</button>
       </>}
     >
-      <form onSubmit={submit} className="field">
-        <label htmlFor="w-name">Name</label>
-        <input id="w-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Regular week, Ramadan week" autoFocus />
+      <form onSubmit={submit}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Regular week, Ramadan week" aria-label="Name" autoFocus />
       </form>
     </Modal>
   );
@@ -42,6 +42,7 @@ export default function WeekTemplates() {
 
   const selected = weekTemplates.find((w) => w.id === selectedId) || weekTemplates[0] || null;
   const labels = slotWeekdays(settings.weekStartsOn, true);
+  const isDefault = selected && settings.defaultWeekTemplateId === selected.id;
 
   const create = async (name) => {
     const r = await addWeekTemplate({ name });
@@ -49,96 +50,87 @@ export default function WeekTemplates() {
   };
 
   const remove = () => {
-    if (window.confirm(`Delete week template “${selected.name}”?`)) {
+    if (window.confirm(`Delete “${selected.name}”?`)) {
       deleteWeekTemplate(selected.id);
       setSelectedId(null);
     }
   };
 
-  const newButton = <button className="btn primary" onClick={() => setModal('new')}><PlusIcon width={18} height={18} /> New week template</button>;
-
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Week templates</h1>
-          <p>Drag day templates onto the seven days of a week.</p>
-        </div>
-        {newButton}
+      <div className="toolbar">
+        <p>A typical week. The default one fills every week automatically.</p>
+        <button className="btn primary" onClick={() => setModal('new')}><PlusIcon width={16} height={16} /> Week</button>
       </div>
 
       {weekTemplates.length === 0 ? (
         <Empty
-          title="No week templates yet"
-          action={dayTemplates.length ? newButton : <Link className="btn primary" to="/days">Create day templates first</Link>}
+          icon={<LayersIcon />}
+          title="No week yet"
+          action={dayTemplates.length
+            ? <button className="btn primary" onClick={() => setModal('new')}>Create a week</button>
+            : <Link className="btn primary" to="/setup/days">Create days first</Link>}
         >
-          A week template says which kind of day each weekday is — e.g. five work days and a weekend.
+          Say which kind of day each weekday is — e.g. five work days and a weekend.
         </Empty>
       ) : (
         <>
-          <div className="row" style={{ marginBottom: 16 }}>
-            {weekTemplates.map((w) => (
-              <button
-                key={w.id}
-                className={`chip toggle${selected?.id === w.id ? ' on' : ''}`}
-                onClick={() => setSelectedId(w.id)}
-              >
-                {settings.defaultWeekTemplateId === w.id && <StarIcon width={13} height={13} fill="currentColor" />}
-                {w.name}
-              </button>
-            ))}
+          <div className="week-toolbar">
+            {weekTemplates.length > 1 ? (
+              <select className="select pill" value={selected.id} onChange={(e) => setSelectedId(e.target.value)} aria-label="Week template">
+                {weekTemplates.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}{settings.defaultWeekTemplateId === w.id ? ' (default)' : ''}</option>
+                ))}
+              </select>
+            ) : (
+              <h2>{selected.name}</h2>
+            )}
+            {isDefault && <span className="faint small row" style={{ gap: 4 }}><StarIcon width={13} height={13} fill="currentColor" /> Default</span>}
+            <span className="spacer" />
+            <Menu trigger={({ toggle }) => <button className="btn ghost icon" onClick={toggle} aria-label="Week options"><MoreIcon /></button>}>
+              {(close) => (
+                <>
+                  {!isDefault && (
+                    <button className="menu-item" onClick={() => { updateSettings({ defaultWeekTemplateId: selected.id }); close(); }}>
+                      <StarIcon width={16} height={16} /> Make default
+                    </button>
+                  )}
+                  <button className="menu-item" onClick={() => { setModal('rename'); close(); }}><EditIcon width={16} height={16} /> Rename</button>
+                  <button className="menu-item" style={{ color: 'var(--danger)' }} onClick={() => { close(); remove(); }}><TrashIcon width={16} height={16} /> Delete</button>
+                </>
+              )}
+            </Menu>
           </div>
 
-          {selected && (
-            <div className="card stack">
-              <div className="row">
-                <h2>{selected.name}</h2>
-                {settings.defaultWeekTemplateId === selected.id ? (
-                  <span className="chip"><StarIcon width={13} height={13} fill="currentColor" /> Default</span>
-                ) : (
-                  <button className="btn sm" onClick={() => updateSettings({ defaultWeekTemplateId: selected.id })}>
-                    <StarIcon width={14} height={14} /> Make default
-                  </button>
-                )}
-                <span className="spacer" />
-                <button className="btn ghost icon" onClick={() => setModal('rename')} aria-label="Rename"><EditIcon width={18} height={18} /></button>
-                <button className="btn ghost icon danger" onClick={remove} aria-label="Delete"><TrashIcon width={18} height={18} /></button>
-              </div>
-              <WeekBoard
-                clearOnDropOutside
-                slots={labels.map((label, i) => ({
-                  label,
-                  dayTemplateId: weekTemplateById[selected.id]?.slots?.[i] || null,
-                }))}
-                onAssign={(slot, dt) => setWeekTemplateSlot(selected.id, slot, dt)}
-              />
-              <p className="faint small">
-                The default week template is used for any calendar week you haven’t set up explicitly. Drag a day off the board to clear it.
-              </p>
-            </div>
-          )}
+          <WeekBoard
+            rows={labels.map((label, i) => ({
+              label,
+              dayTemplateId: weekTemplateById[selected.id]?.slots?.[i] || null,
+            }))}
+            onAssign={(slot, dt) => setWeekTemplateSlot(selected.id, slot, dt)}
+          />
         </>
       )}
 
-      <div className="section-title">Settings</div>
-      <div className="card row" style={{ justifyContent: 'space-between' }}>
+      <div className="section-label">Preferences</div>
+      <div className="group setting-row">
         <div>
-          <h3>First day of the week</h3>
-          <p className="muted small">Decides which weekday each of the seven slots maps to.</p>
+          <div style={{ fontWeight: 550 }}>Week starts on</div>
+          <div className="faint small">Sets which weekday comes first.</div>
         </div>
         <select
-          className="select"
-          style={{ width: 160 }}
+          className="select pill"
           value={settings.weekStartsOn}
           onChange={(e) => updateSettings({ weekStartsOn: Number(e.target.value) })}
+          aria-label="Week starts on"
         >
           {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
         </select>
       </div>
 
-      {modal === 'new' && <NameModal title="New week template" onSubmit={create} onClose={() => setModal(null)} />}
+      {modal === 'new' && <NameModal title="New week" onSubmit={create} onClose={() => setModal(null)} />}
       {modal === 'rename' && selected && (
-        <NameModal title="Rename week template" initial={selected.name} onSubmit={(name) => updateWeekTemplate(selected.id, { name })} onClose={() => setModal(null)} />
+        <NameModal title="Rename week" initial={selected.name} onSubmit={(name) => updateWeekTemplate(selected.id, { name })} onClose={() => setModal(null)} />
       )}
     </>
   );

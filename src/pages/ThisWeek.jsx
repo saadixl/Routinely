@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import WeekBoard from '../components/WeekBoard';
 import Empty from '../components/Empty';
 import useKeyNav from '../lib/useKeyNav';
-import { ChevronLeft, ChevronRight } from '../components/Icons';
+import { ChevronLeft, ChevronRight, LayersIcon } from '../components/Icons';
 import { addDays, dateKey, formatShort, parseKey, slotWeekdays, startOfWeek, today } from '../lib/dates';
 
 export default function ThisWeek() {
@@ -14,70 +14,78 @@ export default function ThisWeek() {
   const now = today();
   const weekStart = startOfWeek(start ? parseKey(start) : now, settings.weekStartsOn);
   const weekKey = dateKey(weekStart);
-  const isCurrent = weekKey === dateKey(startOfWeek(now, settings.weekStartsOn));
+  const thisWeekKey = dateKey(startOfWeek(now, settings.weekStartsOn));
+  const offset = Math.round((weekStart - parseKey(thisWeekKey)) / (7 * 86400000));
   const names = slotWeekdays(settings.weekStartsOn, true);
-  const explicitTemplateId = weeks[weekKey]?.templateId && weekTemplateById[weeks[weekKey].templateId] ? weeks[weekKey].templateId : '';
+  const explicit = weeks[weekKey]?.templateId;
+  const explicitTemplateId = explicit && weekTemplateById[explicit] && explicit !== settings.defaultWeekTemplateId ? explicit : '';
   const defaultTemplate = settings.defaultWeekTemplateId ? weekTemplateById[settings.defaultWeekTemplateId] : null;
-  const go = (d) => navigate(`/week/${dateKey(d)}`);
+
+  const go = (d) => {
+    const k = dateKey(startOfWeek(d, settings.weekStartsOn));
+    navigate(k === thisWeekKey ? '/week' : `/week/${k}`);
+  };
   useKeyNav(() => go(addDays(weekStart, -7)), () => go(addDays(weekStart, 7)));
 
   const dates = names.map((_, i) => addDays(weekStart, i));
   const plans = dates.map((d) => planFor(d));
   const hasOverrides = plans.some((p) => p.isOverride);
-
   const resetAll = () => plans.forEach((p, i) => p.isOverride && setDayOverride(weekKey, i, null));
 
+  const title = offset === 0 ? 'This week' : offset === 1 ? 'Next week' : offset === -1 ? 'Last week' : `Week of ${formatShort(weekStart)}`;
+
   return (
-    <>
+    <div className="fade-in" key={weekKey}>
       <div className="page-head">
         <div>
-          <h1>{isCurrent ? 'This week' : 'Week of ' + formatShort(weekStart)}</h1>
-          <p>{formatShort(weekStart)} – {formatShort(addDays(weekStart, 6))} · pick a week template, then swap individual days as needed.</p>
+          <div className="eyebrow">
+            {formatShort(weekStart)} – {formatShort(addDays(weekStart, 6))}
+            {offset !== 0 && <> · <Link to="/week">Back to this week</Link></>}
+          </div>
+          <h1>{title}</h1>
         </div>
-        <div className="date-nav">
-          <button className="btn icon" onClick={() => go(addDays(weekStart, -7))} aria-label="Previous week" title="Previous week (←)"><ChevronLeft /></button>
-          {!isCurrent && <button className="btn" onClick={() => navigate('/week')}>This week</button>}
-          <button className="btn icon" onClick={() => go(addDays(weekStart, 7))} aria-label="Next week" title="Next week (→)"><ChevronRight /></button>
+        <div className="stepper">
+          <button className="btn icon" onClick={() => go(addDays(weekStart, -7))} aria-label="Previous week" title="Previous week (←)"><ChevronLeft width={18} height={18} /></button>
+          <button className="btn icon" onClick={() => go(addDays(weekStart, 7))} aria-label="Next week" title="Next week (→)"><ChevronRight width={18} height={18} /></button>
         </div>
       </div>
 
       {weekTemplates.length === 0 ? (
-        <Empty title="No week templates yet" action={<Link className="btn primary" to="/week-templates">Create a week template</Link>}>
-          Set up a week template first; then you can use it for any calendar week.
+        <Empty icon={<LayersIcon />} title="No week template yet" action={<Link className="btn primary" to="/setup/weeks">Create one</Link>}>
+          Lay out a typical week once — then every week fills itself in.
         </Empty>
       ) : (
-        <div className="card stack">
-          <div className="row">
-            <div className="field" style={{ minWidth: 220 }}>
-              <label htmlFor="wk-tpl">Week template</label>
-              <select
-                id="wk-tpl"
-                className="select"
-                value={explicitTemplateId}
-                onChange={(e) => setWeekTemplateFor(weekKey, e.target.value)}
-              >
-                <option value="">{defaultTemplate ? `Default (${defaultTemplate.name})` : 'None'}</option>
-                {weekTemplates.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </div>
+        <>
+          <div className="week-toolbar">
+            <select
+              className="select pill"
+              value={explicitTemplateId}
+              onChange={(e) => setWeekTemplateFor(weekKey, e.target.value)}
+              aria-label="Week template"
+            >
+              <option value="">{defaultTemplate ? defaultTemplate.name : 'No template'}</option>
+              {weekTemplates.filter((w) => w.id !== settings.defaultWeekTemplateId).map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
             <span className="spacer" />
-            {hasOverrides && <button className="btn sm" onClick={resetAll}>Reset all days to template</button>}
+            {hasOverrides && <button className="btn ghost sm" onClick={resetAll}>Undo changes</button>}
           </div>
 
           <WeekBoard
-            slots={plans.map((p, i) => ({
+            rows={plans.map((p, i) => ({
               label: names[i],
-              sub: <Link to={`/day/${dateKey(dates[i])}`} style={{ color: 'inherit' }}>{formatShort(dates[i])}</Link>,
+              sub: formatShort(dates[i]),
               today: dateKey(dates[i]) === dateKey(now),
               dayTemplateId: p.dayTemplateId,
-              note: p.isOverride ? 'Changed' : null,
+              changed: p.isOverride,
               onReset: p.isOverride ? () => setDayOverride(weekKey, i, null) : null,
             }))}
             onAssign={(slot, dt) => setDayFor(dates[slot], dt)}
           />
-          <p className="faint small">Changes here only affect this calendar week — the week template stays the same.</p>
-        </div>
+          <p className="faint small" style={{ marginTop: 12 }}>Changes apply to this week only.</p>
+        </>
       )}
-    </>
+    </div>
   );
 }

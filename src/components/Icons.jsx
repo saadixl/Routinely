@@ -16,3 +16,7 @@ export const ChevronLeft = I(<path d="M15 6l-6 6 6 6" />);
 export const ChevronRight = I(<path d="M9 6l6 6-6 6" />);
 export const LogoutIcon = I(<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />);
 export const StarIcon = I(<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z" />);
+export const SettingsIcon = I(<><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>);
+export const ChevronDown = I(<path d="M6 9l6 6 6-6" />);
+export const MoreIcon = I(<><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>);
+export const UndoIcon = I(<path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3" />);

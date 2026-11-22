@@ -5,14 +5,17 @@ import Modal from '../components/Modal';
 import Empty from '../components/Empty';
 import ColorPicker from '../components/ColorPicker';
 import SortableList from '../components/SortableList';
-import { EditIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
+import { DayIcon, EditIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
 
+const NAME_IDEAS = ['Work day', 'Weekend', 'Vacation', 'Travel day'];
+
 function DayTemplateForm({ initial, title, onSubmit, onClose }) {
-  const { activities } = useData();
+  const { activities, dayTemplates } = useData();
   const [name, setName] = useState(initial?.name || '');
   const [color, setColor] = useState(initial?.color || randomColor());
   const [selected, setSelected] = useState(initial?.activities || []);
+  const ideas = NAME_IDEAS.filter((n) => !dayTemplates.some((d) => d.name.toLowerCase() === n.toLowerCase()));
 
   const toggle = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
@@ -28,33 +31,36 @@ function DayTemplateForm({ initial, title, onSubmit, onClose }) {
       title={title}
       onClose={onClose}
       actions={<>
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn primary" onClick={submit} disabled={!name.trim()}>Save</button>
       </>}
     >
-      <form onSubmit={submit} className="stack">
+      <form onSubmit={submit} className="stack" style={{ gap: 20 }}>
         <div className="field">
-          <label htmlFor="d-name">Name</label>
-          <input id="d-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Work day, Weekend, Vacation" autoFocus />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. Work day" aria-label="Name" autoFocus />
+          {!initial && !name && ideas.length > 0 && (
+            <div className="row" style={{ gap: 6 }}>
+              {ideas.map((n) => <button type="button" key={n} className="chip dashed" style={{ height: 30, fontSize: 13 }} onClick={() => setName(n)}>{n}</button>)}
+            </div>
+          )}
         </div>
         <div className="field">
           <label>Color</label>
           <ColorPicker value={color} onChange={setColor} />
         </div>
         <div className="field">
-          <label>Activities ({selected.length})</label>
+          <label>Activities {selected.length > 0 && <span className="faint">· {selected.length}</span>}</label>
           {activities.length === 0 ? (
-            <p className="muted small">No activities yet. <Link to="/activities">Create some first.</Link></p>
+            <p className="muted small">No activities yet. <Link to="/setup/activities">Add some first.</Link></p>
           ) : (
-            <div className="row">
+            <div className="row" style={{ gap: 6 }}>
               {activities.map((a) => (
-                <button type="button" key={a.id} className={`chip toggle${selected.includes(a.id) ? ' on' : ''}`} onClick={() => toggle(a.id)}>
+                <button type="button" key={a.id} className={`chip${selected.includes(a.id) ? ' on' : ''}`} onClick={() => toggle(a.id)} aria-pressed={selected.includes(a.id)}>
                   <span>{a.emoji}</span>{a.name}
                 </button>
               ))}
             </div>
           )}
-          <p className="faint small">You can reorder them on the card after saving.</p>
         </div>
         <button type="submit" hidden />
       </form>
@@ -67,72 +73,82 @@ function DayTemplateCard({ t, onEdit }) {
   const ids = (t.activities || []).filter((id) => activityById[id]);
 
   const remove = () => {
-    if (window.confirm(`Delete day template “${t.name}”? Weeks using it will have that day cleared.`)) deleteDayTemplate(t.id);
+    if (window.confirm(`Delete “${t.name}”? Weeks using it will have that day cleared.`)) deleteDayTemplate(t.id);
   };
 
   return (
-    <div className="card stack">
-      <div className="row" style={{ flexWrap: 'nowrap' }}>
-        <span className="day-tag" style={{ background: t.color }}>{t.name}</span>
-        <span className="spacer" />
-        <button className="btn ghost icon" onClick={onEdit} aria-label="Edit"><EditIcon width={18} height={18} /></button>
-        <button className="btn ghost icon danger" onClick={remove} aria-label="Delete"><TrashIcon width={18} height={18} /></button>
+    <div className="card tpl-card">
+      <div className="tpl-head">
+        <div className="title"><span className="swatch-dot" style={{ background: t.color }} />{t.name}</div>
+        <span className="faint small">{ids.length}</span>
+        <button className="btn ghost icon sm" onClick={onEdit} aria-label={`Edit ${t.name}`}><EditIcon width={16} height={16} /></button>
+        <button className="btn ghost icon sm danger" onClick={remove} aria-label={`Delete ${t.name}`}><TrashIcon width={16} height={16} /></button>
       </div>
-      {ids.length === 0 ? (
-        <p className="faint small">No activities. <button className="btn ghost sm" onClick={onEdit}>Add some</button></p>
-      ) : (
-        <SortableList
-          items={ids}
-          onReorder={(next) => updateDayTemplate(t.id, { activities: next })}
-          renderItem={(id) => {
-            const a = activityById[id];
-            return (
-              <>
-                <span>{a.emoji}</span>
-                <span style={{ flex: 1, minWidth: 0 }}>{a.name}</span>
-                <button className="handle" onClick={() => updateDayTemplate(t.id, { activities: ids.filter((x) => x !== id) })} aria-label={`Remove ${a.name}`}>
-                  <XIcon width={16} height={16} />
-                </button>
-              </>
-            );
-          }}
-        />
-      )}
+      <div className="tpl-body">
+        {ids.length > 0 && (
+          <SortableList
+            className=""
+            rowClassName="mini-row"
+            items={ids}
+            onReorder={(next) => updateDayTemplate(t.id, { activities: next })}
+            renderItem={(id) => {
+              const a = activityById[id];
+              return (
+                <>
+                  <span>{a.emoji}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>{a.name}</span>
+                  <button className="btn ghost icon sm x" onClick={() => updateDayTemplate(t.id, { activities: ids.filter((x) => x !== id) })} aria-label={`Remove ${a.name}`}>
+                    <XIcon width={14} height={14} />
+                  </button>
+                </>
+              );
+            }}
+          />
+        )}
+        <div className="tpl-foot">
+          <button className="btn ghost sm" onClick={onEdit}><PlusIcon width={14} height={14} /> {ids.length ? 'Edit activities' : 'Add activities'}</button>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function DayTemplates() {
-  const { dayTemplates, dayTemplateById, activities, addDayTemplate, updateDayTemplate } = useData();
+  const { dayTemplates, dayTemplateById, activities, weekTemplates, addDayTemplate, updateDayTemplate } = useData();
   const [editing, setEditing] = useState(null);
-
-  const newButton = (
-    <button className="btn primary" onClick={() => setEditing('new')}><PlusIcon width={18} height={18} /> New day template</button>
-  );
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Day templates</h1>
-          <p>Group activities into kinds of days — work days, weekends, vacations.</p>
-        </div>
-        {newButton}
+      <div className="toolbar">
+        <p>Kinds of days, each with its own activities.</p>
+        <button className="btn primary" onClick={() => setEditing('new')}><PlusIcon width={16} height={16} /> Day</button>
       </div>
 
       {dayTemplates.length === 0 ? (
-        <Empty title="No day templates yet" action={activities.length ? newButton : <Link className="btn primary" to="/activities">Create activities first</Link>}>
-          A day template is a set of activities you do on a certain kind of day.
+        <Empty
+          icon={<DayIcon />}
+          title="No days yet"
+          action={activities.length
+            ? <button className="btn primary" onClick={() => setEditing('new')}>Create a day</button>
+            : <Link className="btn primary" to="/setup/activities">Add activities first</Link>}
+        >
+          For example a Work day with office and study, and a Weekend with family time.
         </Empty>
       ) : (
-        <div className="grid-cards">
+        <div className="tpl-grid">
           {dayTemplates.map((t) => <DayTemplateCard key={t.id} t={t} onEdit={() => setEditing(t.id)} />)}
+        </div>
+      )}
+
+      {dayTemplates.length > 0 && weekTemplates.length === 0 && (
+        <div style={{ marginTop: 28, display: 'flex', justifyContent: 'flex-end' }}>
+          <Link className="btn primary" to="/setup/weeks">Next: lay out your week →</Link>
         </div>
       )}
 
       {editing && (
         <DayTemplateForm
-          title={editing === 'new' ? 'New day template' : 'Edit day template'}
+          title={editing === 'new' ? 'New day' : 'Edit day'}
           initial={editing === 'new' ? null : dayTemplateById[editing]}
           onClose={() => setEditing(null)}
           onSubmit={(data) => (editing === 'new' ? addDayTemplate(data) : updateDayTemplate(editing, data))}

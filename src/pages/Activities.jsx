@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import Modal from '../components/Modal';
 import Empty from '../components/Empty';
 import ColorPicker from '../components/ColorPicker';
 import SortableList from '../components/SortableList';
-import { EditIcon, PlusIcon, TrashIcon } from '../components/Icons';
+import { EditIcon, ListIcon, PlusIcon, TrashIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
 
 const SUGGESTIONS = [
@@ -18,7 +19,7 @@ const SUGGESTIONS = [
   { emoji: '😴', name: 'Sleep by 11' },
 ];
 
-export function ActivityForm({ initial, onSubmit, onClose, title }) {
+function ActivityForm({ initial, onSubmit, onClose, title }) {
   const [name, setName] = useState(initial?.name || '');
   const [emoji, setEmoji] = useState(initial?.emoji || '✅');
   const [color, setColor] = useState(initial?.color || randomColor());
@@ -35,20 +36,14 @@ export function ActivityForm({ initial, onSubmit, onClose, title }) {
       title={title}
       onClose={onClose}
       actions={<>
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn primary" onClick={submit} disabled={!name.trim()}>Save</button>
       </>}
     >
-      <form onSubmit={submit} className="stack">
-        <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'nowrap' }}>
-          <div className="field">
-            <label htmlFor="a-emoji">Icon</label>
-            <input id="a-emoji" className="input emoji-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={4} />
-          </div>
-          <div className="field" style={{ flex: 1 }}>
-            <label htmlFor="a-name">Name</label>
-            <input id="a-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Morning workout" autoFocus />
-          </div>
+      <form onSubmit={submit} className="stack" style={{ gap: 20 }}>
+        <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
+          <input className="input emoji-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={4} aria-label="Icon (emoji)" />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Activity name" aria-label="Name" autoFocus />
         </div>
         <div className="field">
           <label>Color</label>
@@ -68,7 +63,7 @@ export default function Activities() {
 
   const confirmDelete = (a) => {
     const n = usedIn(a.id);
-    const msg = n ? `Delete “${a.name}”? It will be removed from ${n} day template${n > 1 ? 's' : ''}.` : `Delete “${a.name}”?`;
+    const msg = n ? `Delete “${a.name}”? It will be removed from ${n} day${n > 1 ? 's' : ''}.` : `Delete “${a.name}”?`;
     if (window.confirm(msg)) deleteActivity(a.id);
   };
 
@@ -76,17 +71,14 @@ export default function Activities() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Activities</h1>
-          <p>The building blocks of your routine.</p>
-        </div>
-        <button className="btn primary" onClick={() => setEditing('new')}><PlusIcon width={18} height={18} /> New activity</button>
+      <div className="toolbar">
+        <p>Things you do regularly.</p>
+        <button className="btn primary" onClick={() => setEditing('new')}><PlusIcon width={16} height={16} /> Activity</button>
       </div>
 
       {activities.length === 0 ? (
-        <Empty title="No activities yet" action={<button className="btn primary" onClick={() => setEditing('new')}><PlusIcon width={18} height={18} /> Add your first</button>}>
-          Add things you do regularly — workouts, office, prayers, study, side projects.
+        <Empty icon={<ListIcon />} title="No activities yet">
+          Start with a suggestion below, or add your own.
         </Empty>
       ) : (
         <SortableList
@@ -97,13 +89,15 @@ export default function Activities() {
             const n = usedIn(id);
             return (
               <>
-                <span className="emoji-badge" style={{ background: `${a.color}22` }}>{a.emoji}</span>
+                <span className="emoji-tile" style={{ '--c': a.color }}>{a.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 550 }}>{a.name}</div>
-                  <div className="faint small">{n ? `In ${n} day template${n > 1 ? 's' : ''}` : 'Not used yet'}</div>
+                  <div className="title">{a.name}</div>
+                  <div className="faint small">{n ? `Used in ${n} day${n > 1 ? 's' : ''}` : 'Not used yet'}</div>
                 </div>
-                <button className="btn ghost icon" onClick={() => setEditing(id)} aria-label="Edit"><EditIcon width={18} height={18} /></button>
-                <button className="btn ghost icon danger" onClick={() => confirmDelete(a)} aria-label="Delete"><TrashIcon width={18} height={18} /></button>
+                <div className="actions">
+                  <button className="btn ghost icon sm" onClick={() => setEditing(id)} aria-label={`Edit ${a.name}`}><EditIcon width={16} height={16} /></button>
+                  <button className="btn ghost icon sm danger" onClick={() => confirmDelete(a)} aria-label={`Delete ${a.name}`}><TrashIcon width={16} height={16} /></button>
+                </div>
               </>
             );
           }}
@@ -112,15 +106,21 @@ export default function Activities() {
 
       {missing.length > 0 && (
         <>
-          <div className="section-title">Quick add</div>
+          <div className="section-label">Suggestions</div>
           <div className="row">
             {missing.map((s) => (
-              <button key={s.name} className="chip toggle" onClick={() => addActivity({ ...s, color: randomColor() })}>
-                <span>{s.emoji}</span>{s.name}<PlusIcon width={14} height={14} />
+              <button key={s.name} className="chip dashed" onClick={() => addActivity({ ...s, color: randomColor() })}>
+                <span>{s.emoji}</span>{s.name}
               </button>
             ))}
           </div>
         </>
+      )}
+
+      {activities.length > 0 && dayTemplates.length === 0 && (
+        <div style={{ marginTop: 28, display: 'flex', justifyContent: 'flex-end' }}>
+          <Link className="btn primary" to="/setup/days">Next: group them into days →</Link>
+        </div>
       )}
 
       {editing && (
