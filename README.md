@@ -14,6 +14,7 @@ Built with React + Vite, Firebase Auth (Google sign-in) and the Realtime Databas
 
 ```bash
 npm install
+cp .env.example .env.local   # then fill in your Firebase web app config
 npm run dev
 ```
 
