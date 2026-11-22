@@ -17,6 +17,13 @@ npm install
 npm run dev
 ```
 
+### Against local emulators (no real Google login needed)
+
+```bash
+npm run emulators   # Auth + RTDB emulators (needs Java 21+)
+npm run dev:emu     # app wired to the emulators
+```
+
 ## Deploy
 
 ```bash
