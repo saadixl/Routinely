@@ -16,6 +16,8 @@ import { dateKey, slotIndex, startOfWeek } from '../lib/dates';
  *   settings            { weekStartsOn: 0..6, defaultWeekTemplateId }
  */
 
+export const NONE_DAY = 'none';
+
 const DataContext = createContext(null);
 
 const SECTIONS = ['activities', 'dayTemplates', 'weekTemplates', 'weeks', 'settings'];
@@ -107,6 +109,16 @@ export function DataProvider({ children }) {
   const setDayOverride = (weekKey, slot, dayTemplateId) =>
     set(path(`weeks/${weekKey}/overrides/${slot}`), dayTemplateId || null);
 
+  /** Pick the day template for one calendar date; stores an override only when it differs from the week template. */
+  const setDayFor = (date, dayTemplateId) => {
+    const p = planFor(date);
+    const want = dayTemplateId || null;
+    const value = want === (p.templateDayId && dayTemplateById[p.templateDayId] ? p.templateDayId : null)
+      ? null
+      : want || NONE_DAY;
+    return setDayOverride(p.weekKey, p.slot, value);
+  };
+
   // ---------- Settings ----------
   const updateSettings = (data) => update(path('settings'), data);
 
@@ -124,9 +136,10 @@ export function DataProvider({ children }) {
     const week = weeks[weekKey] || {};
     const weekTemplateId = week.templateId || settings.defaultWeekTemplateId || null;
     const weekTemplate = weekTemplateId ? weekTemplateById[weekTemplateId] : null;
+    // An override of NONE_DAY means "no day template on this date", even if the week template has one.
     const overrideId = week.overrides?.[slot];
     const templateDayId = weekTemplate?.slots?.[slot];
-    const dayTemplateId = overrideId || templateDayId || null;
+    const dayTemplateId = overrideId === NONE_DAY ? null : overrideId || templateDayId || null;
     const dayTemplate = dayTemplateId ? dayTemplateById[dayTemplateId] : null;
     return {
       weekKey,
@@ -136,7 +149,7 @@ export function DataProvider({ children }) {
       weekIsExplicit: Boolean(week.templateId),
       dayTemplateId: dayTemplate ? dayTemplateId : null,
       dayTemplate: dayTemplate ? { id: dayTemplateId, ...dayTemplate } : null,
-      isOverride: Boolean(overrideId && dayTemplateById[overrideId]),
+      isOverride: overrideId === NONE_DAY || Boolean(overrideId && dayTemplateById[overrideId]),
       templateDayId: templateDayId || null,
     };
   };
@@ -164,6 +177,7 @@ export function DataProvider({ children }) {
     deleteWeekTemplate,
     setWeekTemplateFor,
     setDayOverride,
+    setDayFor,
     updateSettings,
     setActivityDone,
     planFor,
