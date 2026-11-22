@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import WeekBoard from '../components/WeekBoard';
 import Empty from '../components/Empty';
+import Select from '../components/Select';
 import useKeyNav from '../lib/useKeyNav';
 import { ChevronLeft, ChevronRight, LayersIcon } from '../components/Icons';
 import { addDays, dateKey, formatShort, parseKey, slotWeekdays, startOfWeek } from '../lib/dates';
@@ -57,17 +58,15 @@ export default function ThisWeek() {
       ) : (
         <>
           <div className="week-toolbar">
-            <select
-              className="select pill"
+            <Select
+              label="Week template"
               value={explicitTemplateId}
-              onChange={(e) => setWeekTemplateFor(weekKey, e.target.value)}
-              aria-label="Week template"
-            >
-              <option value="">{defaultTemplate ? defaultTemplate.name : 'No template'}</option>
-              {weekTemplates.filter((w) => w.id !== settings.defaultWeekTemplateId).map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
+              onChange={(id) => setWeekTemplateFor(weekKey, id)}
+              options={[
+                { value: '', label: defaultTemplate ? defaultTemplate.name : 'No template', hint: defaultTemplate ? 'Default' : undefined },
+                ...weekTemplates.filter((w) => w.id !== settings.defaultWeekTemplateId).map((w) => ({ value: w.id, label: w.name })),
+              ]}
+            />
             <span className="spacer" />
             {hasOverrides && <button className="btn ghost sm" onClick={resetAll}>Undo changes</button>}
           </div>

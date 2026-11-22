@@ -237,8 +237,10 @@ button { cursor: pointer; }
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow);
-  overflow: hidden;
 }
+/* No overflow clipping (menus must escape the card) — round the edge rows instead. */
+.group > :first-child { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.group > :last-child { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
 
 /* ==========================================================================
    Controls
@@ -267,7 +269,7 @@ button { cursor: pointer; }
 .btn.icon { width: 36px; height: 36px; padding: 0; }
 .btn.icon.sm { width: 30px; height: 30px; }
 
-.input, .select {
+.input {
   height: 44px; width: 100%; min-width: 0;
   padding: 0 14px;
   border-radius: 12px;
@@ -277,13 +279,7 @@ button { cursor: pointer; }
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .input::placeholder { color: var(--text-3); }
-.input:focus, .select:focus { outline: none; border-color: var(--text-2); box-shadow: 0 0 0 4px var(--surface-2); }
-.select {
-  appearance: none; -webkit-appearance: none; padding-right: 36px; cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 14px center;
-}
-.select.pill { height: 36px; border-radius: 999px; font-size: 14px; font-weight: 550; width: auto; }
+.input:focus { outline: none; border-color: var(--text-2); box-shadow: 0 0 0 4px var(--surface-2); }
 
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field > label { font-size: 13px; font-weight: 550; color: var(--text-2); }
@@ -587,3 +583,26 @@ button { cursor: pointer; }
 }
 .emoji-cell:hover { background: var(--surface); transform: scale(1.12); }
 .emoji-cell.on { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--text); }
+
+/* ==========================================================================
+   Custom select
+   ========================================================================== */
+
+.select-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px 0 16px; max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  font-size: 14px; font-weight: 550;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.select-btn:hover { background: var(--surface-2); }
+.select-btn[aria-expanded='true'] { border-color: var(--text-3); box-shadow: 0 0 0 4px var(--surface-2); }
+.select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-chevron { color: var(--text-3); flex: none; transition: transform 0.2s var(--ease); }
+.select-chevron.open { transform: rotate(180deg); }
+
+.menu-item:focus-visible { outline: none; background: var(--surface-2); }
+.menu-item[role='menuitemradio'] { min-height: 38px; }

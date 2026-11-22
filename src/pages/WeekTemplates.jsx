@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import Modal from '../components/Modal';
 import Empty from '../components/Empty';
 import Menu from '../components/Menu';
+import Select from '../components/Select';
 import WeekBoard from '../components/WeekBoard';
 import { EditIcon, LayersIcon, MoreIcon, PlusIcon, StarIcon, TrashIcon } from '../components/Icons';
 import { WEEKDAYS, slotWeekdays } from '../lib/dates';
@@ -78,11 +79,16 @@ export default function WeekTemplates() {
         <>
           <div className="week-toolbar">
             {weekTemplates.length > 1 ? (
-              <select className="select pill" value={selected.id} onChange={(e) => setSelectedId(e.target.value)} aria-label="Week template">
-                {weekTemplates.map((w) => (
-                  <option key={w.id} value={w.id}>{w.name}{settings.defaultWeekTemplateId === w.id ? ' (default)' : ''}</option>
-                ))}
-              </select>
+              <Select
+                label="Week template"
+                value={selected.id}
+                onChange={setSelectedId}
+                options={weekTemplates.map((w) => ({
+                  value: w.id,
+                  label: w.name,
+                  hint: settings.defaultWeekTemplateId === w.id ? 'Default' : undefined,
+                }))}
+              />
             ) : (
               <h2>{selected.name}</h2>
             )}
@@ -119,14 +125,13 @@ export default function WeekTemplates() {
           <div style={{ fontWeight: 550 }}>Week starts on</div>
           <div className="faint small">Sets which weekday comes first.</div>
         </div>
-        <select
-          className="select pill"
+        <Select
+          label="Week starts on"
+          align="right"
           value={settings.weekStartsOn}
-          onChange={(e) => setWeekStartsOn(Number(e.target.value))}
-          aria-label="Week starts on"
-        >
-          {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
-        </select>
+          onChange={setWeekStartsOn}
+          options={WEEKDAYS.map((d, i) => ({ value: i, label: d }))}
+        />
       </div>
 
       {modal === 'new' && <NameModal title="New week" onSubmit={create} onClose={() => setModal(null)} />}

@@ -11,23 +11,23 @@ export default function DayPicker({ value, onChange, onReset, placeholder = 'Cho
   return (
     <Menu
       align={align}
-      trigger={({ toggle }) => (
-        <button className="picker-btn" onClick={toggle} aria-label="Change day type">
+      trigger={({ open, toggle }) => (
+        <button className="picker-btn" onClick={toggle} aria-label="Change day type" aria-haspopup="menu" aria-expanded={open}>
           {children || (t ? <Pill color={t.color}>{t.name}</Pill> : <span className="placeholder">{placeholder}</span>)}
-          <ChevronDown width={14} height={14} />
+          <ChevronDown width={14} height={14} className={`select-chevron${open ? ' open' : ''}`} />
         </button>
       )}
     >
       {(close) => (
         <>
           {dayTemplates.map((d) => (
-            <button key={d.id} className={`menu-item${d.id === value ? ' selected' : ''}`} onClick={() => { onChange(d.id); close(); }}>
+            <button key={d.id} role="menuitemradio" aria-checked={d.id === value} className={`menu-item${d.id === value ? ' selected' : ''}`} onClick={() => { onChange(d.id); close(); }}>
               <span className="pill" style={{ '--c': d.color, padding: 0, background: 'none', height: 'auto' }}><span className="dot" /></span>
               {d.name}
               {d.id === value && <CheckIcon className="check" width={16} height={16} />}
             </button>
           ))}
-          <button className={`menu-item${!value ? ' selected' : ''}`} onClick={() => { onChange(null); close(); }}>
+          <button role="menuitemradio" aria-checked={!value} className={`menu-item${!value ? ' selected' : ''}`} onClick={() => { onChange(null); close(); }}>
             <span style={{ width: 7 }} />Rest / nothing planned
             {!value && <CheckIcon className="check" width={16} height={16} />}
           </button>
