@@ -555,3 +555,35 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ==========================================================================
+   Emoji picker
+   ========================================================================== */
+
+.emoji-trigger {
+  width: 56px; height: 44px; flex: none;
+  border-radius: 12px; border: 1px solid var(--hairline-strong);
+  background: var(--surface); font-size: 22px;
+  display: grid; place-items: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.emoji-trigger:hover { background: var(--surface-2); }
+.emoji-trigger[aria-expanded='true'] { border-color: var(--text-2); box-shadow: 0 0 0 4px var(--surface-2); }
+
+.emoji-picker {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; border-radius: 16px;
+  background: var(--surface-2); border: 1px solid var(--hairline);
+  animation: pop 0.16s var(--ease);
+}
+.emoji-picker .input { height: 38px; font-size: 14px; }
+.emoji-scroll { max-height: 236px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.emoji-group { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 2px 4px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 2px; }
+.emoji-cell {
+  height: 38px; border: 0; border-radius: 10px; background: none;
+  font-size: 22px; display: grid; place-items: center;
+  transition: background 0.12s, transform 0.12s var(--ease);
+}
+.emoji-cell:hover { background: var(--surface); transform: scale(1.12); }
+.emoji-cell.on { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--text); }

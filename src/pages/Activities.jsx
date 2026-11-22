@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import Modal from '../components/Modal';
 import Empty from '../components/Empty';
 import ColorPicker from '../components/ColorPicker';
+import EmojiPicker from '../components/EmojiPicker';
 import SortableList from '../components/SortableList';
 import { EditIcon, ListIcon, PlusIcon, TrashIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
@@ -23,6 +24,7 @@ function ActivityForm({ initial, onSubmit, onClose, title }) {
   const [name, setName] = useState(initial?.name || '');
   const [emoji, setEmoji] = useState(initial?.emoji || '✅');
   const [color, setColor] = useState(initial?.color || randomColor());
+  const [picking, setPicking] = useState(false);
 
   const submit = (e) => {
     e?.preventDefault();
@@ -42,9 +44,19 @@ function ActivityForm({ initial, onSubmit, onClose, title }) {
     >
       <form onSubmit={submit} className="stack" style={{ gap: 20 }}>
         <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
-          <input className="input emoji-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={4} aria-label="Icon (emoji)" />
+          <button
+            type="button"
+            className="emoji-trigger"
+            onClick={() => setPicking((p) => !p)}
+            aria-expanded={picking}
+            aria-label="Choose icon"
+            title="Choose icon"
+          >
+            {emoji}
+          </button>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Activity name" aria-label="Name" autoFocus />
         </div>
+        {picking && <EmojiPicker value={emoji} onPick={(e) => { setEmoji(e); setPicking(false); }} />}
         <div className="field">
           <label>Color</label>
           <ColorPicker value={color} onChange={setColor} />
