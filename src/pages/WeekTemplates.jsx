@@ -35,7 +35,7 @@ function NameModal({ title, initial = '', onSubmit, onClose }) {
 export default function WeekTemplates() {
   const {
     weekTemplates, weekTemplateById, dayTemplates, settings,
-    addWeekTemplate, updateWeekTemplate, deleteWeekTemplate, setWeekTemplateSlot, updateSettings,
+    addWeekTemplate, updateWeekTemplate, deleteWeekTemplate, setWeekTemplateDays, updateSettings, setWeekStartsOn,
   } = useData();
   const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null); // 'new' | 'rename'
@@ -43,6 +43,7 @@ export default function WeekTemplates() {
   const selected = weekTemplates.find((w) => w.id === selectedId) || weekTemplates[0] || null;
   const labels = slotWeekdays(settings.weekStartsOn, true);
   const isDefault = selected && settings.defaultWeekTemplateId === selected.id;
+  const weekdayAt = (i) => (settings.weekStartsOn + i) % 7;
 
   const create = async (name) => {
     const r = await addWeekTemplate({ name });
@@ -105,9 +106,9 @@ export default function WeekTemplates() {
           <WeekBoard
             rows={labels.map((label, i) => ({
               label,
-              dayTemplateId: weekTemplateById[selected.id]?.slots?.[i] || null,
+              dayTemplateId: weekTemplateById[selected.id]?.days?.[weekdayAt(i)] || null,
             }))}
-            onAssign={(slot, dt) => setWeekTemplateSlot(selected.id, slot, dt)}
+            onAssign={(pairs) => setWeekTemplateDays(selected.id, pairs.map(([i, dt]) => [weekdayAt(i), dt]))}
           />
         </>
       )}
@@ -121,7 +122,7 @@ export default function WeekTemplates() {
         <select
           className="select pill"
           value={settings.weekStartsOn}
-          onChange={(e) => updateSettings({ weekStartsOn: Number(e.target.value) })}
+          onChange={(e) => setWeekStartsOn(Number(e.target.value))}
           aria-label="Week starts on"
         >
           {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}

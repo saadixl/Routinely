@@ -56,7 +56,7 @@ function ActivityForm({ initial, onSubmit, onClose, title }) {
           </button>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Activity name" aria-label="Name" autoFocus />
         </div>
-        {picking && <EmojiPicker value={emoji} onPick={(e) => { setEmoji(e); setPicking(false); }} />}
+        {picking && <EmojiPicker value={emoji} onPick={(e) => { setEmoji(e); setPicking(false); }} onClose={() => setPicking(false)} />}
         <div className="field">
           <label>Color</label>
           <ColorPicker value={color} onChange={setColor} />

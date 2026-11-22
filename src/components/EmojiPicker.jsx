@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { EMOJI_GROUPS } from '../lib/emojis';
 
 /** Inline emoji grid with search; also accepts any emoji typed or pasted in the search box. */
-export default function EmojiPicker({ value, onPick }) {
+export default function EmojiPicker({ value, onPick, onClose }) {
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
 
@@ -24,6 +24,10 @@ export default function EmojiPicker({ value, onPick }) {
         placeholder="Search, or paste any emoji"
         aria-label="Search emoji"
         autoFocus
+        onKeyDown={(e) => {
+          // Close just the picker, not the dialog around it.
+          if (e.key === 'Escape') { e.stopPropagation(); onClose?.(); }
+        }}
       />
       <div className="emoji-scroll">
         {custom && (

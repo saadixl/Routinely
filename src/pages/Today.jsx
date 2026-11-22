@@ -1,10 +1,10 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useData, useDayLog } from '../context/DataContext';
+import { useData, useDay } from '../context/DataContext';
 import Empty from '../components/Empty';
 import DayPicker from '../components/DayPicker';
 import useKeyNav from '../lib/useKeyNav';
 import { CheckIcon, ChevronLeft, ChevronRight, SettingsIcon, WeekIcon } from '../components/Icons';
-import { addDays, dateKey, formatLong, parseKey, today } from '../lib/dates';
+import { addDays, dateKey, formatLong, parseKey } from '../lib/dates';
 
 function Ring({ done, total }) {
   const size = 56;
@@ -36,19 +36,18 @@ function relativeLabel(date, now) {
 export default function Today() {
   const { date: param } = useParams();
   const navigate = useNavigate();
-  const { activityById, dayTemplates, weekTemplates, planFor, setDayFor, setDayOverride, setActivityDone } = useData();
+  const { dayTemplates, dayTemplateById, weekTemplates, todayKey, setDayFor, resetDays, setActivityDone } = useData();
 
-  const now = today();
+  const now = parseKey(todayKey);
   const date = param ? parseKey(param) : now;
-  const key = dateKey(date);
-  const isToday = key === dateKey(now);
-  const log = useDayLog(key);
-  const plan = planFor(date);
-  const t = plan.dayTemplate;
-  const items = (t?.activities || []).filter((id) => activityById[id]).map((id) => ({ id, ...activityById[id] }));
-  const doneCount = log ? items.filter((a) => log[a.id]).length : 0;
+  const day = useDay(date);
+  const { key, log, plan, items } = day;
+  const isToday = key === todayKey;
+  const t = day.dayTemplate;
+  const pickerValue = t?.id && dayTemplateById[t.id] ? t.id : null;
+  const doneCount = items.filter((a) => log[a.id]).length;
 
-  const go = (d) => navigate(dateKey(d) === dateKey(now) ? '/' : `/day/${dateKey(d)}`);
+  const go = (d) => navigate(dateKey(d) === todayKey ? '/' : `/day/${dateKey(d)}`);
   useKeyNav(() => go(addDays(date, -1)), () => go(addDays(date, 1)));
 
   const setupDone = dayTemplates.length > 0;
@@ -87,9 +86,9 @@ export default function Today() {
             </div>
             <DayPicker
               align="right"
-              value={plan.dayTemplateId}
+              value={pickerValue}
               onChange={(id) => setDayFor(date, id)}
-              onReset={plan.isOverride ? () => setDayOverride(plan.weekKey, plan.slot, null) : null}
+              onReset={plan.isOverride ? () => resetDays([date]) : null}
               placeholder="Pick a day"
             />
           </div>
@@ -117,8 +116,8 @@ export default function Today() {
                     <button
                       key={a.id}
                       className={`check-row${done ? ' done' : ''}`}
-                      onClick={() => setActivityDone(key, a.id, !done)}
-                      disabled={!log}
+                      onClick={() => setActivityDone(key, a.id, !done, day.snapshotForTick)}
+                      disabled={day.loading}
                       aria-pressed={done}
                     >
                       <span className="tick"><CheckIcon width={14} height={14} strokeWidth={3} /></span>

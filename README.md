@@ -32,15 +32,17 @@ npm run deploy   # vite build + firebase deploy (hosting and database rules)
 
 ## Data model
 
-All data is private to the signed-in user under `users/{uid}` (see `database.rules.json`):
+All data is private to the signed-in user under `users/{uid}` (see `database.rules.json`). Schema version 2:
 
 | Path | Shape |
 | --- | --- |
 | `activities/{id}` | `{ name, emoji, color, order, createdAt }` |
 | `dayTemplates/{id}` | `{ name, color, activities: [activityId], order, createdAt }` |
-| `weekTemplates/{id}` | `{ name, slots: { 0..6: dayTemplateId } }` |
-| `weeks/{YYYY-MM-DD}` | `{ templateId, overrides: { 0..6: dayTemplateId \| "none" } }` — key is the first day of that week |
+| `weekTemplates/{id}` | `{ name, days: { 0..6: dayTemplateId } }` — keyed by weekday, 0 = Sunday |
+| `weeks/{YYYY-MM-DD}` | `{ templateId }` — key is the first day of that week |
+| `dayOverrides/{YYYY-MM-DD}` | `dayTemplateId` or `"none"` — a one-off change for that date |
 | `logs/{YYYY-MM-DD}` | `{ activityId: true }` |
-| `settings` | `{ weekStartsOn: 0..6, defaultWeekTemplateId }` |
+| `snapshots/{YYYY-MM-DD}` | `{ dayTemplateId, name, color, items: [{ id, name, emoji, color }] }` — the checklist a day had, so editing templates later doesn't rewrite history |
+| `settings` | `{ weekStartsOn: 0..6, defaultWeekTemplateId, schema }` |
 
-Slot `0` is the first day of the week as set in **Week templates → First day of the week**.
+Data from schema 1 (positional week slots, per-week overrides) is migrated automatically on first load.

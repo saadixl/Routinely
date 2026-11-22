@@ -4,14 +4,14 @@ import WeekBoard from '../components/WeekBoard';
 import Empty from '../components/Empty';
 import useKeyNav from '../lib/useKeyNav';
 import { ChevronLeft, ChevronRight, LayersIcon } from '../components/Icons';
-import { addDays, dateKey, formatShort, parseKey, slotWeekdays, startOfWeek, today } from '../lib/dates';
+import { addDays, dateKey, formatShort, parseKey, slotWeekdays, startOfWeek } from '../lib/dates';
 
 export default function ThisWeek() {
   const { start } = useParams();
   const navigate = useNavigate();
-  const { settings, weekTemplates, weekTemplateById, weeks, setWeekTemplateFor, setDayOverride, setDayFor, planFor } = useData();
+  const { settings, weekTemplates, weekTemplateById, weeks, todayKey, setWeekTemplateFor, setDaysFor, resetDays, planFor } = useData();
 
-  const now = today();
+  const now = parseKey(todayKey);
   const weekStart = startOfWeek(start ? parseKey(start) : now, settings.weekStartsOn);
   const weekKey = dateKey(weekStart);
   const thisWeekKey = dateKey(startOfWeek(now, settings.weekStartsOn));
@@ -30,7 +30,7 @@ export default function ThisWeek() {
   const dates = names.map((_, i) => addDays(weekStart, i));
   const plans = dates.map((d) => planFor(d));
   const hasOverrides = plans.some((p) => p.isOverride);
-  const resetAll = () => plans.forEach((p, i) => p.isOverride && setDayOverride(weekKey, i, null));
+  const resetAll = () => resetDays(dates.filter((_, i) => plans[i].isOverride));
 
   const title = offset === 0 ? 'This week' : offset === 1 ? 'Next week' : offset === -1 ? 'Last week' : `Week of ${formatShort(weekStart)}`;
 
@@ -79,9 +79,9 @@ export default function ThisWeek() {
               today: dateKey(dates[i]) === dateKey(now),
               dayTemplateId: p.dayTemplateId,
               changed: p.isOverride,
-              onReset: p.isOverride ? () => setDayOverride(weekKey, i, null) : null,
+              onReset: p.isOverride ? () => resetDays([dates[i]]) : null,
             }))}
-            onAssign={(slot, dt) => setDayFor(dates[slot], dt)}
+            onAssign={(pairs) => setDaysFor(pairs.map(([i, dt]) => [dates[i], dt]))}
           />
           <p className="faint small" style={{ marginTop: 12 }}>Changes apply to this week only.</p>
         </>

@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { CheckIcon } from '../components/Icons';
 
 export default function Login() {
-  const { signIn } = useAuth();
-  const [error, setError] = useState('');
+  const { signIn, redirectError } = useAuth();
+  const [popupError, setError] = useState('');
+  const error = popupError || redirectError?.message || '';
   const [busy, setBusy] = useState(false);
 
   const go = async () => {

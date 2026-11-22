@@ -24,7 +24,7 @@ function DayRow({ index, row, onAssign }) {
   const valid = row.dayTemplateId && dayTemplateById[row.dayTemplateId] ? row.dayTemplateId : null;
 
   const picker = (
-    <DayPicker value={valid} onChange={(id) => onAssign(index, id)} onReset={row.onReset} placeholder="Rest day" />
+    <DayPicker value={valid} onChange={(id) => onAssign([[index, id]])} onReset={row.onReset} placeholder="Rest day" />
   );
 
   return (
@@ -68,11 +68,10 @@ export default function WeekBoard({ rows, onAssign }) {
     const dtId = a.data.current?.dayTemplateId;
     const to = Number(String(over.id).slice(5));
     const from = String(a.id).startsWith('row:') ? Number(String(a.id).slice(4)) : null;
-    if (from === null) return onAssign(to, dtId);
+    if (from === null) return onAssign([[to, dtId]]);
     if (from === to) return undefined;
     const target = rows[to].dayTemplateId && dayTemplateById[rows[to].dayTemplateId] ? rows[to].dayTemplateId : null;
-    onAssign(to, dtId);
-    return onAssign(from, target);
+    return onAssign([[to, dtId], [from, target]]); // swap in a single write
   };
 
   const activeT = active ? dayTemplateById[active] : null;
