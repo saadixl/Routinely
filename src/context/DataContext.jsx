@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { onValue, push, ref, set, update } from 'firebase/database';
+import { endAt, get, onValue, orderByKey, push, query, ref, set, startAt, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { toSortedList } from '../lib/palette';
@@ -15,9 +15,10 @@ import useTodayKey from '../lib/useToday';
  *   weeks/{YYYY-MM-DD}    { templateId }          key = first day of that week (per settings.weekStartsOn)
  *   dayOverrides/{date}   dayTemplateId | "none"  a one-off change for that date
  *   logs/{date}           { activityId: true }
- *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, name, emoji, color }] }
- *                         the checklist as it was on that day, so later template edits don't rewrite history
- *   settings              { weekStartsOn: 0..6, defaultWeekTemplateId, schema }
+ *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, name, emoji, color }] } | { rest: true }
+ *                         the checklist as it was on that day, so later template edits don't rewrite history.
+ *                         Past days are closed out automatically (see closeOutPastDays), ticked or not.
+ *   settings              { weekStartsOn: 0..6, defaultWeekTemplateId, schema, closedThrough: date }
  */
 
 export const NONE_DAY = 'none';
@@ -96,7 +97,8 @@ export function DataProvider({ children }) {
   /** The checklist a day template gives right now, frozen into a snapshot. */
   const snapshotOf = (dayTemplateId) => {
     const t = dayTemplateId ? dayTemplateById[dayTemplateId] : null;
-    if (!t) return { dayTemplateId: null, name: null, color: null, items: [] };
+    // RTDB drops empty objects, so a rest day is stored as an explicit marker.
+    if (!t) return { rest: true };
     return {
       dayTemplateId,
       name: t.name,
@@ -234,9 +236,42 @@ export function DataProvider({ children }) {
   };
   const saveSnapshot = (dKey, snapshot) => set(path(`snapshots/${dKey}`), snapshot);
 
+  /*
+   * Close out past days: give every day from the last close-out (or the account's start) up to
+   * yesterday a snapshot of what was planned, ticked or not. Days that already have one keep it.
+   * This keeps old completion rates fixed when templates change later.
+   */
+  const closing = useRef(null);
+  const ready = allLoaded && migrated;
+  useEffect(() => {
+    if (!ready || !uid || closing.current === todayKey) return;
+    const yesterday = dateKey(addDays(parseKey(todayKey), -1));
+    const createdDays = [...activities, ...dayTemplates, ...weekTemplates]
+      .map((x) => x.createdAt).filter(Boolean).map((t) => dateKey(new Date(t)));
+    if (createdDays.length === 0) return; // nothing set up yet
+    const earliest = dateKey(addDays(parseKey(todayKey), -90));
+    let from = settings.closedThrough
+      ? dateKey(addDays(parseKey(settings.closedThrough), 1))
+      : createdDays.sort()[0];
+    if (from < earliest) from = earliest;
+    if (from > yesterday) return;
+
+    closing.current = todayKey;
+    const range = query(ref(db, `${base}/snapshots`), orderByKey(), startAt(from), endAt(yesterday));
+    get(range).then((snap) => {
+      const existing = snap.val() || {};
+      const updates = { 'settings/closedThrough': yesterday };
+      for (let d = parseKey(from); dateKey(d) <= yesterday; d = addDays(d, 1)) {
+        const k = dateKey(d);
+        if (!existing[k]) updates[`snapshots/${k}`] = snapshotOf(planFor(d).dayTemplateId);
+      }
+      return multi(updates);
+    }).catch(() => { closing.current = null; });
+  }, [ready, uid, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const value = {
     uid,
-    ready: allLoaded && migrated,
+    ready,
     todayKey,
     activities,
     dayTemplates,
@@ -307,8 +342,8 @@ export function useDay(date) {
   const plan = planFor(date);
   const live = snapshotOf(plan.dayTemplateId);
   const hasTicks = Object.keys(log).length > 0;
-  // A past day keeps the checklist it had, but only once something was ticked on it.
-  const frozen = key < todayKey && hasTicks && snapRaw ? snapRaw : null;
+  // A past day keeps the checklist it had when it was closed out (or when it was ticked/changed).
+  const frozen = key < todayKey && snapRaw ? snapRaw : null;
   const source = frozen || live;
 
   // Keep today's snapshot in step with template edits once the day has been worked on.
