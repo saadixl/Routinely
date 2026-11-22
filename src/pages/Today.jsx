@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useData, useDayLog } from '../context/DataContext';
 import Empty from '../components/Empty';
+import useKeyNav from '../lib/useKeyNav';
 import { CheckIcon, ChevronLeft, ChevronRight } from '../components/Icons';
 import { addDays, dateKey, formatLong, parseKey, today } from '../lib/dates';
 
@@ -38,6 +39,7 @@ export default function Today() {
   const doneCount = log ? items.filter((a) => log[a.id]).length : 0;
 
   const go = (d) => navigate(dateKey(d) === dateKey(now) ? '/' : `/day/${dateKey(d)}`);
+  useKeyNav(() => go(addDays(date, -1)), () => go(addDays(date, 1)));
 
   return (
     <>
@@ -47,8 +49,8 @@ export default function Today() {
           <p>{isToday ? formatLong(date) : <Link to="/">Back to today</Link>}</p>
         </div>
         <div className="date-nav">
-          <button className="btn icon" onClick={() => go(addDays(date, -1))} aria-label="Previous day"><ChevronLeft /></button>
-          <button className="btn icon" onClick={() => go(addDays(date, 1))} aria-label="Next day"><ChevronRight /></button>
+          <button className="btn icon" onClick={() => go(addDays(date, -1))} aria-label="Previous day" title="Previous day (←)"><ChevronLeft /></button>
+          <button className="btn icon" onClick={() => go(addDays(date, 1))} aria-label="Next day" title="Next day (→)"><ChevronRight /></button>
         </div>
       </div>
 

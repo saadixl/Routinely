@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import WeekBoard from '../components/WeekBoard';
 import Empty from '../components/Empty';
+import useKeyNav from '../lib/useKeyNav';
 import { ChevronLeft, ChevronRight } from '../components/Icons';
 import { addDays, dateKey, formatShort, parseKey, slotWeekdays, startOfWeek, today } from '../lib/dates';
 
@@ -18,6 +19,7 @@ export default function ThisWeek() {
   const explicitTemplateId = weeks[weekKey]?.templateId && weekTemplateById[weeks[weekKey].templateId] ? weeks[weekKey].templateId : '';
   const defaultTemplate = settings.defaultWeekTemplateId ? weekTemplateById[settings.defaultWeekTemplateId] : null;
   const go = (d) => navigate(`/week/${dateKey(d)}`);
+  useKeyNav(() => go(addDays(weekStart, -7)), () => go(addDays(weekStart, 7)));
 
   const dates = names.map((_, i) => addDays(weekStart, i));
   const plans = dates.map((d) => planFor(d));
@@ -33,9 +35,9 @@ export default function ThisWeek() {
           <p>{formatShort(weekStart)} – {formatShort(addDays(weekStart, 6))} · pick a week template, then swap individual days as needed.</p>
         </div>
         <div className="date-nav">
-          <button className="btn icon" onClick={() => go(addDays(weekStart, -7))} aria-label="Previous week"><ChevronLeft /></button>
+          <button className="btn icon" onClick={() => go(addDays(weekStart, -7))} aria-label="Previous week" title="Previous week (←)"><ChevronLeft /></button>
           {!isCurrent && <button className="btn" onClick={() => navigate('/week')}>This week</button>}
-          <button className="btn icon" onClick={() => go(addDays(weekStart, 7))} aria-label="Next week"><ChevronRight /></button>
+          <button className="btn icon" onClick={() => go(addDays(weekStart, 7))} aria-label="Next week" title="Next week (→)"><ChevronRight /></button>
         </div>
       </div>
 
