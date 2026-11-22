@@ -14,7 +14,7 @@ export default function ThisWeek() {
   const weekStart = startOfWeek(start ? parseKey(start) : now, settings.weekStartsOn);
   const weekKey = dateKey(weekStart);
   const isCurrent = weekKey === dateKey(startOfWeek(now, settings.weekStartsOn));
-  const names = slotWeekdays(settings.weekStartsOn);
+  const names = slotWeekdays(settings.weekStartsOn, true);
   const explicitTemplateId = weeks[weekKey]?.templateId && weekTemplateById[weeks[weekKey].templateId] ? weeks[weekKey].templateId : '';
   const defaultTemplate = settings.defaultWeekTemplateId ? weekTemplateById[settings.defaultWeekTemplateId] : null;
   const go = (d) => navigate(`/week/${dateKey(d)}`);
@@ -68,7 +68,7 @@ export default function ThisWeek() {
               sub: <Link to={`/day/${dateKey(dates[i])}`} style={{ color: 'inherit' }}>{formatShort(dates[i])}</Link>,
               today: dateKey(dates[i]) === dateKey(now),
               dayTemplateId: p.dayTemplateId,
-              note: p.isOverride ? 'Changed for this week' : null,
+              note: p.isOverride ? 'Changed' : null,
               onReset: p.isOverride ? () => setDayOverride(weekKey, i, null) : null,
             }))}
             onAssign={(slot, dt) => setDayFor(dates[slot], dt)}

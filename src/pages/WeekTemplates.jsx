@@ -41,7 +41,7 @@ export default function WeekTemplates() {
   const [modal, setModal] = useState(null); // 'new' | 'rename'
 
   const selected = weekTemplates.find((w) => w.id === selectedId) || weekTemplates[0] || null;
-  const labels = slotWeekdays(settings.weekStartsOn);
+  const labels = slotWeekdays(settings.weekStartsOn, true);
 
   const create = async (name) => {
     const r = await addWeekTemplate({ name });
@@ -109,7 +109,6 @@ export default function WeekTemplates() {
                 slots={labels.map((label, i) => ({
                   label,
                   dayTemplateId: weekTemplateById[selected.id]?.slots?.[i] || null,
-                  clearable: true,
                 }))}
                 onAssign={(slot, dt) => setWeekTemplateSlot(selected.id, slot, dt)}
               />

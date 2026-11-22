@@ -4,7 +4,6 @@ import {
   useDraggable, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core';
 import { useData } from '../context/DataContext';
-import { XIcon } from './Icons';
 
 function DayCard({ t, overlay, dragging, ...rest }) {
   const count = (t.activities || []).length;
@@ -33,26 +32,21 @@ function Slot({ index, slot, onAssign, dayTemplates, dayTemplateById }) {
         {slot.sub && <span className="date">{slot.sub}</span>}
       </div>
       {valid ? <DraggableDay id={`slot:${index}`} t={t} /> : <div className="slot-empty">Drop a day</div>}
-      {slot.note && <div className="faint small">{slot.note}</div>}
-      <div className="row" style={{ marginTop: 'auto', flexWrap: 'nowrap', gap: 4 }}>
-        <select
-          className="slot-select"
-          value={valid ? slot.dayTemplateId : ''}
-          onChange={(e) => onAssign(index, e.target.value || null)}
-          aria-label={`Day template for ${slot.label}`}
-        >
-          <option value="">— None —</option>
-          {dayTemplates.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-        {slot.onReset && (
-          <button className="btn ghost sm" onClick={slot.onReset} title="Reset to week template">Reset</button>
-        )}
-        {!slot.onReset && valid && slot.clearable && (
-          <button className="btn ghost icon" style={{ width: 30, height: 30 }} onClick={() => onAssign(index, null)} aria-label="Clear day">
-            <XIcon width={14} height={14} />
-          </button>
-        )}
-      </div>
+      {(slot.note || slot.onReset) && (
+        <div className="faint small slot-note">
+          {slot.note}
+          {slot.onReset && <button className="link-btn" onClick={slot.onReset}>Reset</button>}
+        </div>
+      )}
+      <select
+        className="slot-select"
+        value={valid ? slot.dayTemplateId : ''}
+        onChange={(e) => onAssign(index, e.target.value || null)}
+        aria-label={`Day template for ${slot.label}`}
+      >
+        <option value="">— None —</option>
+        {dayTemplates.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+      </select>
     </div>
   );
 }
