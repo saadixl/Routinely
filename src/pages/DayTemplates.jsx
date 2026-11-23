@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, pointerWithin, rectIntersection,
-  useDraggable, useDroppable, useSensor, useSensors,
+  DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, PointerSensor, TouchSensor, pointerWithin,
+  rectIntersection, useDraggable, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core';
 import {
   SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
@@ -95,10 +95,9 @@ function EntryRow({ dayId, entry, showHintBefore }) {
 
   return (
     <>
-      {showHintBefore && <div className="drop-line" />}
       <div
         ref={setNodeRef}
-        className={`mini-row${isDragging ? ' dragging' : ''}`}
+        className={`mini-row${isDragging ? ' dragging' : ''}${showHintBefore ? ' hint-before' : ''}`}
         style={{ transform: CSS.Transform.toString(transform), transition }}
       >
         <button ref={setActivatorNodeRef} className="handle" aria-label={`Drag ${a.name}`} {...attributes} {...listeners}>
@@ -154,18 +153,20 @@ function Section({ dayId, group, hintIndex, dragging }) {
   const empty = group.items.length === 0;
 
   return (
-    <div ref={setNodeRef} className={`day-section${isOver || hintIndex >= 0 ? ' over' : ''}`}>
+    <div
+      ref={setNodeRef}
+      className={`day-section${isOver || hintIndex >= 0 ? ' over' : ''}${hintIndex >= group.items.length && !empty ? ' hint-end' : ''}`}
+    >
       <div className="section-head">
         <span className="section-name">{group.label}</span>
         {total > 0 && <span className="faint small">{formatTotal(total)}</span>}
+        {empty && dragging && <span className="drop-here">Drop here</span>}
         <span className="spacer" />
         {group.part !== 'anytime' && <AddToSection dayId={dayId} part={group.part} label={group.label} />}
       </div>
       <SortableContext items={group.items.map((e) => `ent:${dayId}:${e.id}`)} strategy={verticalListSortingStrategy}>
         {group.items.map((e, i) => <EntryRow key={e.id} dayId={dayId} entry={e} showHintBefore={hintIndex === i} />)}
       </SortableContext>
-      {hintIndex >= group.items.length && !empty && <div className="drop-line" />}
-      {empty && <div className={`section-empty${dragging ? ' active' : ''}${hintIndex >= 0 ? ' over' : ''}`}>Drop here</div>}
     </div>
   );
 }
@@ -291,6 +292,11 @@ export default function DayTemplates() {
         <DndContext
           sensors={sensors}
           collisionDetection={(args) => (pointerWithin(args).length ? pointerWithin(args) : rectIntersection(args))}
+          // Re-measure drop zones throughout the drag: rows and sections shift as you drag (hint lines,
+          // auto-scroll, live data), and positions measured once at the start go stale.
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+          // Only scroll when the pointer is really at the edge, so the page doesn't move under you mid-aim.
+          autoScroll={{ threshold: { x: 0, y: 0.08 }, acceleration: 6 }}
           onDragStart={onDragStart}
           onDragOver={onDragOver}
           onDragEnd={onDragEnd}
