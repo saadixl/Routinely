@@ -91,7 +91,7 @@ export default function Today() {
               <span className="big">{items.length ? `${doneCount} of ${items.length}` : 'Free day'}</span>
               <span className="muted small">
                 {items.length ? (doneCount === items.length ? 'All done' : 'done') : 'Nothing planned'}
-                {plannedMinutes > 0 && <> · {doneMinutes ? `${formatTotal(doneMinutes)} of ${formatTotal(plannedMinutes)}` : formatTotal(plannedMinutes)} planned</>}
+                {plannedMinutes > 0 && <> · <span className="nowrap">{doneMinutes ? `${formatTotal(doneMinutes)} of ${formatTotal(plannedMinutes)}` : formatTotal(plannedMinutes)} planned</span></>}
               </span>
             </div>
             <DayPicker
@@ -119,6 +119,7 @@ export default function Today() {
             </Empty>
           ) : (
             <>
+              <div className={`day-parts${showParts ? ' with-labels' : ''}`}>
               {groups.map((g) => {
                 const groupDone = g.items.filter((a) => log[a.id]).length;
                 const groupMinutes = totalMinutes(g.items);
@@ -157,6 +158,7 @@ export default function Today() {
                   </section>
                 );
               })}
+              </div>
               {doneCount === items.length && <p className="all-done">That’s everything. Nicely done.</p>}
             </>
           )}
