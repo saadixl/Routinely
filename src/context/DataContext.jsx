@@ -5,13 +5,13 @@ import { useAuth } from './AuthContext';
 import { toSortedList } from '../lib/palette';
 import { addDays, dateKey, parseKey, startOfWeek } from '../lib/dates';
 import useTodayKey from '../lib/useToday';
-import { ANYTIME, placeEntry, sortByPart } from '../lib/parts';
+import { ANYTIME, partOf, placeEntry, sortByPart } from '../lib/parts';
 
 /*
  * Database layout (everything lives under users/{uid}), schema 2:
  *
  *   activities/{id}       { name, emoji, color, order, createdAt }
- *   dayTemplates/{id}     { name, color, items: [{ id, activityId, minutes?, part? }], order, createdAt }
+ *   dayTemplates/{id}     { name, color, items: [{ id, activityId, minutes?, part?, note? }], order, createdAt }
  *                         part: morning | afternoon | evening | night (absent = anytime); items are kept
  *                         grouped in that order
  *                         an ordered list of entries; the same activity may appear more than once,
@@ -20,7 +20,7 @@ import { ANYTIME, placeEntry, sortByPart } from '../lib/parts';
  *   weeks/{YYYY-MM-DD}    { templateId }          key = first day of that week (per settings.weekStartsOn)
  *   dayOverrides/{date}   dayTemplateId | "none"  a one-off change for that date
  *   logs/{date}           { entryId: true }
- *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, activityId, name, emoji, color, minutes?, part? }] } | { rest: true }
+ *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, activityId, name, emoji, color, minutes?, part?, note? }] } | { rest: true }
  *                         (snapshots from before schema 3 have no activityId; their id is the activity id)
  *                         the checklist as it was on that day, so later template edits don't rewrite history.
  *                         Past days are closed out automatically (see closeOutPastDays), ticked or not.
@@ -129,6 +129,7 @@ export function DataProvider({ children }) {
         const item = { id: e.id, activityId: e.activityId, name, emoji, color };
         if (e.minutes) item.minutes = e.minutes;
         if (e.part) item.part = e.part;
+        if (e.note) item.note = e.note;
         return item;
       }),
     };
@@ -174,6 +175,23 @@ export function DataProvider({ children }) {
       [`dayTemplates/${fromTpl}/items`]: entriesOf(fromTpl).filter((e) => e.id !== entryId),
       [`dayTemplates/${toTpl}/items`]: placeEntry(entriesOf(toTpl), entry, part, index),
     });
+  };
+  /**
+   * Edit one entry: { part?, minutes?, note? }. Empty minutes/note are removed. Changing the part
+   * moves the entry to the end of that part.
+   */
+  const updateEntry = (tplId, entryId, patch) => {
+    const items = entriesOf(tplId);
+    const entry = items.find((e) => e.id === entryId);
+    if (!entry) return Promise.resolve();
+    const next = { ...entry, ...patch };
+    if (!(next.minutes > 0)) delete next.minutes; else next.minutes = Math.round(next.minutes);
+    next.note = (next.note || '').trim();
+    if (!next.note) delete next.note;
+    const part = patch.part ?? partOf(entry);
+    if (part !== partOf(entry)) return setEntries(tplId, placeEntry(items, next, part));
+    if (part === ANYTIME.id) delete next.part;
+    return setEntries(tplId, items.map((e) => (e.id === entryId ? next : e)));
   };
   /** Minutes for one entry; null/0 clears it. */
   const setDuration = (tplId, entryId, minutes) => {
@@ -343,6 +361,7 @@ export function DataProvider({ children }) {
     addEntry,
     removeEntry,
     moveEntry,
+    updateEntry,
     setDuration,
     deleteDayTemplate,
     addWeekTemplate,
@@ -384,8 +403,8 @@ function useLive(path) {
 // An empty snapshot is never stored (RTDB drops it), so null and "no day" compare equal.
 const sameSnapshot = (a, b) =>
   (a?.dayTemplateId || null) === (b?.dayTemplateId || null) &&
-  (a?.items || []).map((i) => `${i.id}:${i.minutes || ''}:${i.part || ''}`).join() ===
-    (b?.items || []).map((i) => `${i.id}:${i.minutes || ''}:${i.part || ''}`).join();
+  (a?.items || []).map((i) => `${i.id}:${i.minutes || ''}:${i.part || ''}:${i.note || ''}`).join() ===
+    (b?.items || []).map((i) => `${i.id}:${i.minutes || ''}:${i.part || ''}:${i.note || ''}`).join();
 
 /**
  * Everything the checklist for one date needs.

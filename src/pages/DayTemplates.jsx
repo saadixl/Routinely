@@ -14,6 +14,7 @@ import Empty from '../components/Empty';
 import Menu from '../components/Menu';
 import ColorPicker from '../components/ColorPicker';
 import DurationPicker from '../components/DurationPicker';
+import EntryEditor from '../components/EntryEditor';
 import { DayIcon, EditIcon, GripIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
 import { formatTotal } from '../lib/duration';
@@ -86,8 +87,9 @@ function PaletteChip({ activity }) {
 }
 
 function EntryRow({ dayId, entry, showHintBefore }) {
-  const { activityById, removeEntry, setDuration } = useData();
+  const { activityById, removeEntry, setDuration, updateEntry } = useData();
   const a = activityById[entry.activityId];
+  const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: `ent:${dayId}:${entry.id}` });
 
@@ -103,12 +105,24 @@ function EntryRow({ dayId, entry, showHintBefore }) {
           <GripIcon width={16} height={16} />
         </button>
         <span>{a.emoji}</span>
-        <span className="entry-name">{a.name}</span>
+        <button type="button" className="entry-open" onClick={() => setEditing(true)} aria-label={`Edit ${a.name}${entry.note ? `: ${entry.note}` : ''}`}>
+          <span className="entry-name">{a.name}</span>
+          {entry.note && <span className="entry-note">{entry.note}</span>}
+        </button>
         <DurationPicker label={`${a.name} duration`} value={entry.minutes || null} onChange={(m) => setDuration(dayId, entry.id, m)} />
         <button className="btn ghost icon sm x" onClick={() => removeEntry(dayId, entry.id)} aria-label={`Remove ${a.name}`}>
           <XIcon width={14} height={14} />
         </button>
       </div>
+      {editing && (
+        <EntryEditor
+          activity={a}
+          entry={entry}
+          onSave={(patch) => updateEntry(dayId, entry.id, patch)}
+          onRemove={() => removeEntry(dayId, entry.id)}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </>
   );
 }

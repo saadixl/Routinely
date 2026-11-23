@@ -3,7 +3,7 @@
 Plan your routine once, then just check things off each day.
 
 1. **Activities** — the building blocks: workout, going to the office, prayers, career study, side projects…
-2. **Day templates** — kinds of days (work day, weekend, vacation). Drag activities into Morning, Afternoon, Evening or Night; the same one can appear more than once, each with its own duration.
+2. **Day templates** — kinds of days (work day, weekend, vacation). Drag activities into Morning, Afternoon, Evening or Night; the same one can appear more than once, each with its own duration and note.
 3. **Week templates** — drag day templates onto the seven days of a week. One is the default.
 4. **This week** — pick which week template a calendar week uses, and swap individual days without touching the template.
 5. **Today** — a checklist of the day's activities, in part-of-day order.
@@ -38,12 +38,12 @@ All data is private to the signed-in user under `users/{uid}` (see `database.rul
 | Path | Shape |
 | --- | --- |
 | `activities/{id}` | `{ name, emoji, color, order, createdAt }` |
-| `dayTemplates/{id}` | `{ name, color, items: [{ id, activityId, minutes?, part? }], order, createdAt }` — an ordered list of entries grouped by part of day (`morning`, `afternoon`, `evening`, `night`; none = anytime); the same activity can appear more than once |
+| `dayTemplates/{id}` | `{ name, color, items: [{ id, activityId, minutes?, part?, note? }], order, createdAt }` — an ordered list of entries grouped by part of day (`morning`, `afternoon`, `evening`, `night`; none = anytime); the same activity can appear more than once |
 | `weekTemplates/{id}` | `{ name, days: { 0..6: dayTemplateId } }` — keyed by weekday, 0 = Sunday |
 | `weeks/{YYYY-MM-DD}` | `{ templateId }` — key is the first day of that week |
 | `dayOverrides/{YYYY-MM-DD}` | `dayTemplateId` or `"none"` — a one-off change for that date |
 | `logs/{YYYY-MM-DD}` | `{ entryId: true }` |
-| `snapshots/{YYYY-MM-DD}` | `{ dayTemplateId, name, color, items: [{ id, activityId, name, emoji, color, minutes?, part? }] }` or `{ rest: true }` — the checklist a day had, so editing templates later doesn't rewrite history. Every past day gets one when the app next opens, ticked or not |
+| `snapshots/{YYYY-MM-DD}` | `{ dayTemplateId, name, color, items: [{ id, activityId, name, emoji, color, minutes?, part?, note? }] }` or `{ rest: true }` — the checklist a day had, so editing templates later doesn't rewrite history. Every past day gets one when the app next opens, ticked or not |
 | `settings` | `{ weekStartsOn: 0..6, defaultWeekTemplateId, schema, closedThrough }` |
 
 Older data (schema 1: positional week slots and per-week overrides; schema 2: activity id lists with a durations map) is migrated automatically on first load.

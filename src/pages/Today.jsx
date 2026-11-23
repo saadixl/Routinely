@@ -145,7 +145,10 @@ export default function Today() {
                           >
                             <span className="tick"><CheckIcon width={14} height={14} strokeWidth={3} /></span>
                             <span className="emoji-tile" style={{ '--c': a.color }}>{a.emoji}</span>
-                            <span className="name">{a.name}</span>
+                            <span className="name-wrap">
+                              <span className="name">{a.name}</span>
+                              {a.note && <span className="check-note">{a.note}</span>}
+                            </span>
                             {a.minutes > 0 && <span className="meta-time">{formatMinutes(a.minutes)}</span>}
                           </button>
                         );

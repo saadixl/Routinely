@@ -701,3 +701,24 @@ button { cursor: pointer; }
 .part-label:first-child { margin-top: 0; }
 .part-label .name { font-size: 12px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
 .part-label .meta { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Entry editor + notes */
+.textarea { height: auto; padding: 10px 14px; resize: vertical; line-height: 1.45; min-height: 76px; }
+.part-picker { display: flex; flex-wrap: wrap; border-radius: 14px; }
+.part-picker button { flex: 1; padding: 0 10px; border-radius: 11px; }
+@media (max-width: 480px) { .part-picker button { flex: 1 1 30%; } }
+
+.entry-open {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start;
+  border: 0; background: none; padding: 2px 0; text-align: left; border-radius: 6px; cursor: pointer;
+}
+.entry-open .entry-name { max-width: 100%; }
+.entry-open:hover .entry-name { text-decoration: underline; text-decoration-color: var(--text-3); text-underline-offset: 3px; }
+.entry-note {
+  max-width: 100%; font-size: 12px; color: var(--text-3); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.check-row .name-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.check-row .name-wrap .name { flex: none; }
+.check-note { font-size: 13px; color: var(--text-2); line-height: 1.4; overflow-wrap: anywhere; }
+.check-row.done .check-note { color: var(--text-3); }
