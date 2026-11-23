@@ -1,30 +1,41 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, pointerWithin, rectIntersection,
+  useDraggable, useDroppable, useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useData } from '../context/DataContext';
 import Modal from '../components/Modal';
 import Empty from '../components/Empty';
+import Menu from '../components/Menu';
 import ColorPicker from '../components/ColorPicker';
-import SortableList from '../components/SortableList';
 import DurationPicker from '../components/DurationPicker';
-import { formatTotal } from '../lib/duration';
-import { DayIcon, EditIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
+import { DayIcon, EditIcon, GripIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
+import { formatTotal } from '../lib/duration';
 
 const NAME_IDEAS = ['Work day', 'Weekend', 'Vacation', 'Travel day'];
 
+/* Drag ids: palette chips "pal:<activityId>", entries "ent:<dayId>:<entryId>", day drop zones "day:<dayId>". */
+const parse = (id) => {
+  const [kind, a, b] = String(id).split(':');
+  return { kind, a, b };
+};
+
 function DayTemplateForm({ initial, title, onSubmit, onClose }) {
-  const { activities, dayTemplates } = useData();
+  const { dayTemplates } = useData();
   const [name, setName] = useState(initial?.name || '');
   const [color, setColor] = useState(initial?.color || randomColor());
-  const [selected, setSelected] = useState(initial?.activities || []);
   const ideas = NAME_IDEAS.filter((n) => !dayTemplates.some((d) => d.name.toLowerCase() === n.toLowerCase()));
-
-  const toggle = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const submit = (e) => {
     e?.preventDefault();
     if (!name.trim()) return;
-    onSubmit({ name: name.trim(), color, activities: selected });
+    onSubmit({ name: name.trim(), color });
     onClose();
   };
 
@@ -50,67 +61,99 @@ function DayTemplateForm({ initial, title, onSubmit, onClose }) {
           <label>Color</label>
           <ColorPicker value={color} onChange={setColor} />
         </div>
-        <div className="field">
-          <label>Activities {selected.length > 0 && <span className="faint">· {selected.length}</span>}</label>
-          {activities.length === 0 ? (
-            <p className="muted small">No activities yet. <Link to="/setup/activities">Add some first.</Link></p>
-          ) : (
-            <div className="row" style={{ gap: 6 }}>
-              {activities.map((a) => (
-                <button type="button" key={a.id} className={`chip${selected.includes(a.id) ? ' on' : ''}`} onClick={() => toggle(a.id)} aria-pressed={selected.includes(a.id)}>
-                  <span>{a.emoji}</span>{a.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {!initial && <p className="faint small">After saving, drag activities into the day.</p>}
         <button type="submit" hidden />
       </form>
     </Modal>
   );
 }
 
-function DayTemplateCard({ t, onEdit }) {
-  const { activityById, updateDayTemplate, deleteDayTemplate, setDuration } = useData();
-  const ids = (t.activities || []).filter((id) => activityById[id]);
-  const total = ids.reduce((sum, id) => sum + (t.durations?.[id] || 0), 0);
+function PaletteChip({ activity }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `pal:${activity.id}` });
+  return (
+    <span
+      ref={setNodeRef}
+      className={`chip palette-chip${isDragging ? ' dragging' : ''}`}
+      {...attributes}
+      {...listeners}
+      aria-label={`Drag ${activity.name} into a day`}
+    >
+      <span>{activity.emoji}</span>{activity.name}
+    </span>
+  );
+}
+
+function EntryRow({ dayId, entry, showHintBefore }) {
+  const { activityById, removeEntry, setDuration } = useData();
+  const a = activityById[entry.activityId];
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: `ent:${dayId}:${entry.id}` });
+
+  return (
+    <>
+      {showHintBefore && <div className="drop-line" />}
+      <div
+        ref={setNodeRef}
+        className={`mini-row${isDragging ? ' dragging' : ''}`}
+        style={{ transform: CSS.Transform.toString(transform), transition }}
+      >
+        <button ref={setActivatorNodeRef} className="handle" aria-label={`Drag ${a.name}`} {...attributes} {...listeners}>
+          <GripIcon width={16} height={16} />
+        </button>
+        <span>{a.emoji}</span>
+        <span className="entry-name">{a.name}</span>
+        <DurationPicker label={`${a.name} duration`} value={entry.minutes || null} onChange={(m) => setDuration(dayId, entry.id, m)} />
+        <button className="btn ghost icon sm x" onClick={() => removeEntry(dayId, entry.id)} aria-label={`Remove ${a.name}`}>
+          <XIcon width={14} height={14} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+function DayCard({ t, onEdit, hint, dragging }) {
+  const { activities, activityById, deleteDayTemplate, addEntry } = useData();
+  const { setNodeRef, isOver } = useDroppable({ id: `day:${t.id}` });
+  const entries = (t.items || []).filter((e) => activityById[e.activityId]);
+  const total = entries.reduce((sum, e) => sum + (e.minutes || 0), 0);
+  const hintIndex = hint?.dayId === t.id ? hint.index : -1;
 
   const remove = () => {
     if (window.confirm(`Delete “${t.name}”? Weeks using it will have that day cleared.`)) deleteDayTemplate(t.id);
   };
 
   return (
-    <div className="card tpl-card">
+    <div ref={setNodeRef} className={`card tpl-card${isOver || hintIndex >= 0 ? ' drop-target' : ''}`}>
       <div className="tpl-head">
         <div className="title"><span className="swatch-dot" style={{ background: t.color }} />{t.name}</div>
-        <span className="faint small" title={`${ids.length} activities`}>{total ? formatTotal(total) : ids.length}</span>
+        <span className="faint small" title={`${entries.length} activities`}>{total ? formatTotal(total) : entries.length || ''}</span>
         <button className="btn ghost icon sm" onClick={onEdit} aria-label={`Edit ${t.name}`}><EditIcon width={16} height={16} /></button>
         <button className="btn ghost icon sm danger" onClick={remove} aria-label={`Delete ${t.name}`}><TrashIcon width={16} height={16} /></button>
       </div>
       <div className="tpl-body">
-        {ids.length > 0 && (
-          <SortableList
-            className=""
-            rowClassName="mini-row"
-            items={ids}
-            onReorder={(next) => updateDayTemplate(t.id, { activities: next })}
-            renderItem={(id) => {
-              const a = activityById[id];
-              return (
-                <>
-                  <span>{a.emoji}</span>
-                  <span style={{ flex: 1, minWidth: 0 }}>{a.name}</span>
-                  <DurationPicker label={`${a.name} duration`} value={t.durations?.[id] || null} onChange={(m) => setDuration(t.id, id, m)} />
-                  <button className="btn ghost icon sm x" onClick={() => updateDayTemplate(t.id, { activities: ids.filter((x) => x !== id) })} aria-label={`Remove ${a.name}`}>
-                    <XIcon width={14} height={14} />
-                  </button>
-                </>
-              );
-            }}
-          />
+        <SortableContext items={entries.map((e) => `ent:${t.id}:${e.id}`)} strategy={verticalListSortingStrategy}>
+          {entries.map((e, i) => <EntryRow key={e.id} dayId={t.id} entry={e} showHintBefore={hintIndex === i} />)}
+        </SortableContext>
+        {hintIndex >= entries.length && entries.length > 0 && <div className="drop-line" />}
+        {entries.length === 0 && (
+          <div className={`drop-empty${dragging ? ' active' : ''}`}>Drop activities here</div>
         )}
         <div className="tpl-foot">
-          <button className="btn ghost sm" onClick={onEdit}><PlusIcon width={14} height={14} /> {ids.length ? 'Edit activities' : 'Add activities'}</button>
+          <Menu
+            align="left"
+            minWidth={220}
+            trigger={({ open, toggle }) => (
+              <button className="btn ghost sm" onClick={toggle} aria-haspopup="menu" aria-expanded={open}>
+                <PlusIcon width={14} height={14} /> Add activity
+              </button>
+            )}
+          >
+            {(close) => activities.map((a) => (
+              <button key={a.id} className="menu-item" onClick={() => { addEntry(t.id, a.id); close(); }}>
+                <span>{a.emoji}</span>{a.name}
+              </button>
+            ))}
+          </Menu>
         </div>
       </div>
     </div>
@@ -118,13 +161,67 @@ function DayTemplateCard({ t, onEdit }) {
 }
 
 export default function DayTemplates() {
-  const { dayTemplates, dayTemplateById, activities, weekTemplates, addDayTemplate, updateDayTemplate } = useData();
+  const {
+    dayTemplates, dayTemplateById, activities, activityById, weekTemplates,
+    addDayTemplate, updateDayTemplate, addEntry, reorderEntries, moveEntry,
+  } = useData();
   const [editing, setEditing] = useState(null);
+  const [active, setActive] = useState(null); // activity being dragged
+  const [hint, setHint] = useState(null); // { dayId, index } insertion point for palette / cross-day drops
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const entryIds = (dayId) => (dayTemplateById[dayId]?.items || []).filter((e) => activityById[e.activityId]).map((e) => e.id);
+
+  /** Where would `over` drop? Returns { dayId, index }. */
+  const targetOf = (over) => {
+    if (!over) return null;
+    const o = parse(over.id);
+    if (o.kind === 'day') return { dayId: o.a, index: entryIds(o.a).length };
+    if (o.kind === 'ent') return { dayId: o.a, index: Math.max(0, entryIds(o.a).indexOf(o.b)) };
+    return null;
+  };
+
+  const onDragStart = ({ active: a }) => {
+    const p = parse(a.id);
+    setActive(p.kind === 'pal' ? p.a : dayTemplateById[p.a]?.items?.find((e) => e.id === p.b)?.activityId);
+  };
+
+  const onDragOver = ({ active: a, over }) => {
+    const p = parse(a.id);
+    const target = targetOf(over);
+    // Same-day reorders animate in place; only show the insertion line for adds and moves.
+    setHint(target && (p.kind === 'pal' || target.dayId !== p.a) ? target : null);
+  };
+
+  const onDragEnd = ({ active: a, over }) => {
+    setActive(null);
+    setHint(null);
+    const target = targetOf(over);
+    if (!target) return;
+    const p = parse(a.id);
+    if (p.kind === 'pal') {
+      addEntry(target.dayId, p.a, target.index);
+    } else if (p.kind === 'ent' && p.a === target.dayId) {
+      const ids = entryIds(p.a);
+      const from = ids.indexOf(p.b);
+      const to = parse(over.id).kind === 'ent' ? ids.indexOf(parse(over.id).b) : ids.length - 1;
+      if (from !== to) reorderEntries(p.a, arrayMove(ids, from, to));
+    } else if (p.kind === 'ent') {
+      moveEntry(p.a, p.b, target.dayId, target.index);
+    }
+  };
+
+  const activeActivity = active ? activityById[active] : null;
 
   return (
     <>
       <div className="toolbar">
-        <p>Kinds of days, each with its own activities.</p>
+        <p>Drag activities into a day. Use one as often as you like.</p>
         <button className="btn primary" onClick={() => setEditing('new')}><PlusIcon width={16} height={16} /> Day</button>
       </div>
 
@@ -139,9 +236,32 @@ export default function DayTemplates() {
           For example a Work day with office and study, and a Weekend with family time.
         </Empty>
       ) : (
-        <div className="tpl-grid">
-          {dayTemplates.map((t) => <DayTemplateCard key={t.id} t={t} onEdit={() => setEditing(t.id)} />)}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={(args) => (pointerWithin(args).length ? pointerWithin(args) : rectIntersection(args))}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => { setActive(null); setHint(null); }}
+        >
+          {activities.length > 0 ? (
+            <div className="activity-palette" aria-label="Activities">
+              {activities.map((a) => <PaletteChip key={a.id} activity={a} />)}
+            </div>
+          ) : (
+            <p className="muted small" style={{ marginBottom: 14 }}>No activities yet. <Link to="/setup/activities">Add some first.</Link></p>
+          )}
+          <div className="tpl-grid">
+            {dayTemplates.map((t) => (
+              <DayCard key={t.id} t={t} onEdit={() => setEditing(t.id)} hint={hint} dragging={Boolean(active)} />
+            ))}
+          </div>
+          <DragOverlay dropAnimation={null}>
+            {activeActivity ? (
+              <span className="chip palette-chip overlay"><span>{activeActivity.emoji}</span>{activeActivity.name}</span>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {dayTemplates.length > 0 && weekTemplates.length === 0 && (

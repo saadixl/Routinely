@@ -71,7 +71,7 @@ export default function Activities() {
   const { activities, activityById, dayTemplates, addActivity, updateActivity, deleteActivity, reorder } = useData();
   const [editing, setEditing] = useState(null); // null | 'new' | id
 
-  const usedIn = (id) => dayTemplates.filter((t) => (t.activities || []).includes(id)).length;
+  const usedIn = (id) => dayTemplates.filter((t) => (t.items || []).some((e) => e.activityId === id)).length;
 
   const confirmDelete = (a) => {
     const n = usedIn(a.id);

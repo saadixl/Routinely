@@ -23,9 +23,8 @@ function DayRow({ index, row, onAssign }) {
   const { dayTemplateById, activityById } = useData();
   const { setNodeRef, isOver } = useDroppable({ id: `drop:${index}` });
   const valid = row.dayTemplateId && dayTemplateById[row.dayTemplateId] ? row.dayTemplateId : null;
-  const dayMinutes = valid ? Object.entries(dayTemplateById[valid].durations || {})
-    .filter(([a]) => activityById[a] && (dayTemplateById[valid].activities || []).includes(a))
-    .reduce((sum, [, m]) => sum + m, 0) : 0;
+  const entries = valid ? (dayTemplateById[valid].items || []).filter((e) => activityById[e.activityId]) : [];
+  const dayMinutes = entries.reduce((sum, e) => sum + (e.minutes || 0), 0);
 
   const picker = (
     <DayPicker value={valid} onChange={(id) => onAssign([[index, id]])} onReset={row.onReset} placeholder="Rest day" />
@@ -44,8 +43,8 @@ function DayRow({ index, row, onAssign }) {
       {valid && dayMinutes > 0 && <span className="day-total">{formatTotal(dayMinutes)}</span>}
       {valid && (
         <div className="emoji-strip" aria-hidden="true">
-          {(dayTemplateById[valid].activities || []).filter((id) => activityById[id]).slice(0, 6).map((id) => (
-            <span key={id} title={activityById[id].name}>{activityById[id].emoji}</span>
+          {entries.slice(0, 6).map((e) => (
+            <span key={e.id} title={activityById[e.activityId].name}>{activityById[e.activityId].emoji}</span>
           ))}
         </div>
       )}
