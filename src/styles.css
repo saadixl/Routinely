@@ -676,3 +676,28 @@ button { cursor: pointer; }
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .drop-empty.active { border-color: var(--text-3); color: var(--text-2); background: var(--surface-2); }
+
+/* Parts of the day inside a day card */
+.day-section { padding: 2px 0 4px; transition: background 0.15s; }
+.day-section + .day-section { border-top: 1px solid var(--hairline); }
+.day-section.over { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.section-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px 2px 18px; min-height: 32px; }
+.section-name { font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.section-add { opacity: 0.55; }
+.section-add:hover, .section-add[aria-expanded='true'] { opacity: 1; }
+/* Collapsed until a drag starts, so empty parts of the day stay compact. */
+.section-empty {
+  margin: 0 14px 0 18px; padding: 0 10px; height: 0; overflow: hidden;
+  border: 1px dashed transparent; border-radius: 10px;
+  font-size: 12px; line-height: 30px; color: var(--text-3); text-align: center;
+  transition: height 0.18s var(--ease), margin 0.18s var(--ease), border-color 0.15s, background 0.15s;
+}
+.section-empty.active { height: 32px; margin: 2px 14px 4px 18px; border-color: var(--hairline-strong); }
+.section-empty.over { border-color: var(--text-3); color: var(--text-2); background: var(--surface-2); }
+.tpl-card .tpl-body { padding-bottom: 6px; }
+
+/* Today: part-of-day headings */
+.part-label { display: flex; align-items: baseline; gap: 8px; margin: 22px 4px 8px; }
+.part-label:first-child { margin-top: 0; }
+.part-label .name { font-size: 12px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.part-label .meta { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }

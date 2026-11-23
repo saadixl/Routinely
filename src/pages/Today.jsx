@@ -6,6 +6,7 @@ import useKeyNav from '../lib/useKeyNav';
 import { CheckIcon, ChevronLeft, ChevronRight, SettingsIcon, WeekIcon } from '../components/Icons';
 import { addDays, dateKey, formatLong, parseKey } from '../lib/dates';
 import { formatMinutes, formatTotal, totalMinutes } from '../lib/duration';
+import { groupByPart } from '../lib/parts';
 
 function Ring({ done, total }) {
   const size = 56;
@@ -48,6 +49,9 @@ export default function Today() {
   const pickerValue = t?.id && dayTemplateById[t.id] ? t.id : null;
   const doneCount = items.filter((a) => log[a.id]).length;
   const plannedMinutes = totalMinutes(items);
+  // Group by part of day; skip the headings when nothing has a part yet (a single "Anytime" group).
+  const groups = groupByPart(items);
+  const showParts = !(groups.length === 1 && groups[0].part === 'anytime');
   const doneMinutes = totalMinutes(items.filter((a) => log[a.id]));
 
   const go = (d) => navigate(dateKey(d) === todayKey ? '/' : `/day/${dateKey(d)}`);
@@ -115,25 +119,41 @@ export default function Today() {
             </Empty>
           ) : (
             <>
-              <div className="group checklist">
-                {items.map((a) => {
-                  const done = Boolean(log?.[a.id]);
-                  return (
-                    <button
-                      key={a.id}
-                      className={`check-row${done ? ' done' : ''}`}
-                      onClick={() => setActivityDone(key, a.id, !done, day.snapshotForTick)}
-                      disabled={day.loading}
-                      aria-pressed={done}
-                    >
-                      <span className="tick"><CheckIcon width={14} height={14} strokeWidth={3} /></span>
-                      <span className="emoji-tile" style={{ '--c': a.color }}>{a.emoji}</span>
-                      <span className="name">{a.name}</span>
-                      {a.minutes > 0 && <span className="meta-time">{formatMinutes(a.minutes)}</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              {groups.map((g) => {
+                const groupDone = g.items.filter((a) => log[a.id]).length;
+                const groupMinutes = totalMinutes(g.items);
+                return (
+                  <section key={g.part} aria-label={showParts ? g.label : undefined}>
+                    {showParts && (
+                      <div className="part-label">
+                        <span className="name">{g.label}</span>
+                        <span className="meta">
+                          {groupDone}/{g.items.length}{groupMinutes > 0 && <> · {formatTotal(groupMinutes)}</>}
+                        </span>
+                      </div>
+                    )}
+                    <div className="group checklist">
+                      {g.items.map((a) => {
+                        const done = Boolean(log?.[a.id]);
+                        return (
+                          <button
+                            key={a.id}
+                            className={`check-row${done ? ' done' : ''}`}
+                            onClick={() => setActivityDone(key, a.id, !done, day.snapshotForTick)}
+                            disabled={day.loading}
+                            aria-pressed={done}
+                          >
+                            <span className="tick"><CheckIcon width={14} height={14} strokeWidth={3} /></span>
+                            <span className="emoji-tile" style={{ '--c': a.color }}>{a.emoji}</span>
+                            <span className="name">{a.name}</span>
+                            {a.minutes > 0 && <span className="meta-time">{formatMinutes(a.minutes)}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
               {doneCount === items.length && <p className="all-done">That’s everything. Nicely done.</p>}
             </>
           )}

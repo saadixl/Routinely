@@ -5,19 +5,22 @@ import { useAuth } from './AuthContext';
 import { toSortedList } from '../lib/palette';
 import { addDays, dateKey, parseKey, startOfWeek } from '../lib/dates';
 import useTodayKey from '../lib/useToday';
+import { ANYTIME, placeEntry, sortByPart } from '../lib/parts';
 
 /*
  * Database layout (everything lives under users/{uid}), schema 2:
  *
  *   activities/{id}       { name, emoji, color, order, createdAt }
- *   dayTemplates/{id}     { name, color, items: [{ id, activityId, minutes? }], order, createdAt }
+ *   dayTemplates/{id}     { name, color, items: [{ id, activityId, minutes?, part? }], order, createdAt }
+ *                         part: morning | afternoon | evening | night (absent = anytime); items are kept
+ *                         grouped in that order
  *                         an ordered list of entries; the same activity may appear more than once,
  *                         each entry with its own duration. Ticks are keyed by entry id.
  *   weekTemplates/{id}    { name, days: { 0..6: dayTemplateId }, order, createdAt }   0 = Sunday … 6 = Saturday
  *   weeks/{YYYY-MM-DD}    { templateId }          key = first day of that week (per settings.weekStartsOn)
  *   dayOverrides/{date}   dayTemplateId | "none"  a one-off change for that date
  *   logs/{date}           { entryId: true }
- *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, activityId, name, emoji, color, minutes? }] } | { rest: true }
+ *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, activityId, name, emoji, color, minutes?, part? }] } | { rest: true }
  *                         (snapshots from before schema 3 have no activityId; their id is the activity id)
  *                         the checklist as it was on that day, so later template edits don't rewrite history.
  *                         Past days are closed out automatically (see closeOutPastDays), ticked or not.
@@ -121,10 +124,12 @@ export function DataProvider({ children }) {
       dayTemplateId,
       name: t.name,
       color: t.color,
-      items: (t.items || []).filter((e) => activityById[e.activityId]).map((e) => {
+      items: sortByPart((t.items || []).filter((e) => activityById[e.activityId])).map((e) => {
         const { name, emoji, color } = activityById[e.activityId];
         const item = { id: e.id, activityId: e.activityId, name, emoji, color };
-        return e.minutes ? { ...item, minutes: e.minutes } : item;
+        if (e.minutes) item.minutes = e.minutes;
+        if (e.part) item.part = e.part;
+        return item;
       }),
     };
   };
@@ -150,28 +155,24 @@ export function DataProvider({ children }) {
   // ----- Entries inside a day template (ordered; the same activity may repeat) -----
   const entriesOf = (tplId) => dayTemplateById[tplId]?.items || [];
   const setEntries = (tplId, items) => set(path(`dayTemplates/${tplId}/items`), items);
-  /** Add an activity to a day at `index` (default: end). Returns the new entry id. */
-  const addEntry = (tplId, activityId, index) => {
-    const items = [...entriesOf(tplId)];
+  /** Add an activity to a day, into `part` (morning…night, or anytime) at `index` within it. */
+  const addEntry = (tplId, activityId, part = ANYTIME.id, index) => {
     const entry = { id: newEntryId(), activityId };
-    items.splice(index ?? items.length, 0, entry);
-    setEntries(tplId, items);
+    setEntries(tplId, placeEntry(entriesOf(tplId), entry, part, index));
     return entry.id;
   };
   const removeEntry = (tplId, entryId) => setEntries(tplId, entriesOf(tplId).filter((e) => e.id !== entryId));
-  const reorderEntries = (tplId, entryIds) => {
-    const byId = Object.fromEntries(entriesOf(tplId).map((e) => [e.id, e]));
-    return setEntries(tplId, entryIds.map((eid) => byId[eid]).filter(Boolean));
-  };
-  /** Move an entry (with its duration) to another day template at `index`, in one write. */
-  const moveEntry = (fromTpl, entryId, toTpl, index) => {
+  /**
+   * Move an entry (keeping its duration) to `part` at `index` in a day — the same day or another one.
+   * A move between days is a single write.
+   */
+  const moveEntry = (fromTpl, entryId, toTpl, part, index) => {
     const entry = entriesOf(fromTpl).find((e) => e.id === entryId);
     if (!entry) return Promise.resolve();
-    const target = entriesOf(toTpl).filter((e) => e.id !== entryId);
-    target.splice(index ?? target.length, 0, entry);
+    if (fromTpl === toTpl) return setEntries(toTpl, placeEntry(entriesOf(toTpl), entry, part, index));
     return multi({
       [`dayTemplates/${fromTpl}/items`]: entriesOf(fromTpl).filter((e) => e.id !== entryId),
-      [`dayTemplates/${toTpl}/items`]: target,
+      [`dayTemplates/${toTpl}/items`]: placeEntry(entriesOf(toTpl), entry, part, index),
     });
   };
   /** Minutes for one entry; null/0 clears it. */
@@ -341,7 +342,6 @@ export function DataProvider({ children }) {
     updateDayTemplate,
     addEntry,
     removeEntry,
-    reorderEntries,
     moveEntry,
     setDuration,
     deleteDayTemplate,
@@ -384,8 +384,8 @@ function useLive(path) {
 // An empty snapshot is never stored (RTDB drops it), so null and "no day" compare equal.
 const sameSnapshot = (a, b) =>
   (a?.dayTemplateId || null) === (b?.dayTemplateId || null) &&
-  (a?.items || []).map((i) => `${i.id}:${i.minutes || ''}`).join() ===
-    (b?.items || []).map((i) => `${i.id}:${i.minutes || ''}`).join();
+  (a?.items || []).map((i) => `${i.id}:${i.minutes || ''}:${i.part || ''}`).join() ===
+    (b?.items || []).map((i) => `${i.id}:${i.minutes || ''}:${i.part || ''}`).join();
 
 /**
  * Everything the checklist for one date needs.
@@ -412,7 +412,7 @@ export function useDay(date) {
   }, [needsSync, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefer current activity details (renames, new emoji); fall back to the recorded copy if it was deleted.
-  const items = (source.items || []).map((it) => {
+  const items = sortByPart(source.items || []).map((it) => {
     const activityId = it.activityId || it.id; // pre-schema-3 snapshots stored the activity id as id
     const { name, emoji, color } = activityById[activityId] || {};
     return { ...it, activityId, ...(name ? { name, emoji, color } : {}) };

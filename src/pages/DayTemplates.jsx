@@ -5,7 +5,7 @@ import {
   useDraggable, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core';
 import {
-  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useData } from '../context/DataContext';
@@ -17,10 +17,12 @@ import DurationPicker from '../components/DurationPicker';
 import { DayIcon, EditIcon, GripIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
 import { formatTotal } from '../lib/duration';
+import { groupByPart, partOf } from '../lib/parts';
 
 const NAME_IDEAS = ['Work day', 'Weekend', 'Vacation', 'Travel day'];
 
-/* Drag ids: palette chips "pal:<activityId>", entries "ent:<dayId>:<entryId>", day drop zones "day:<dayId>". */
+/* Drag ids: palette chips "pal:<activityId>", entries "ent:<dayId>:<entryId>",
+   sections (drop zones) "sec:<dayId>:<part>". */
 const parse = (id) => {
   const [kind, a, b] = String(id).split(':');
   return { kind, a, b };
@@ -111,19 +113,61 @@ function EntryRow({ dayId, entry, showHintBefore }) {
   );
 }
 
+function AddToSection({ dayId, part, label }) {
+  const { activities, addEntry } = useData();
+  return (
+    <Menu
+      align="right"
+      minWidth={220}
+      trigger={({ open, toggle }) => (
+        <button className="btn ghost icon sm section-add" onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label={`Add activity to ${label}`}>
+          <PlusIcon width={14} height={14} />
+        </button>
+      )}
+    >
+      {(close) => activities.map((a) => (
+        <button key={a.id} className="menu-item" onClick={() => { addEntry(dayId, a.id, part); close(); }}>
+          <span>{a.emoji}</span>{a.name}
+        </button>
+      ))}
+    </Menu>
+  );
+}
+
+function Section({ dayId, group, hintIndex, dragging }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `sec:${dayId}:${group.part}` });
+  const total = group.items.reduce((sum, e) => sum + (e.minutes || 0), 0);
+  const empty = group.items.length === 0;
+
+  return (
+    <div ref={setNodeRef} className={`day-section${isOver || hintIndex >= 0 ? ' over' : ''}`}>
+      <div className="section-head">
+        <span className="section-name">{group.label}</span>
+        {total > 0 && <span className="faint small">{formatTotal(total)}</span>}
+        <span className="spacer" />
+        {group.part !== 'anytime' && <AddToSection dayId={dayId} part={group.part} label={group.label} />}
+      </div>
+      <SortableContext items={group.items.map((e) => `ent:${dayId}:${e.id}`)} strategy={verticalListSortingStrategy}>
+        {group.items.map((e, i) => <EntryRow key={e.id} dayId={dayId} entry={e} showHintBefore={hintIndex === i} />)}
+      </SortableContext>
+      {hintIndex >= group.items.length && !empty && <div className="drop-line" />}
+      {empty && <div className={`section-empty${dragging ? ' active' : ''}${hintIndex >= 0 ? ' over' : ''}`}>Drop here</div>}
+    </div>
+  );
+}
+
 function DayCard({ t, onEdit, hint, dragging }) {
-  const { activities, activityById, deleteDayTemplate, addEntry } = useData();
-  const { setNodeRef, isOver } = useDroppable({ id: `day:${t.id}` });
+  const { activityById, deleteDayTemplate } = useData();
   const entries = (t.items || []).filter((e) => activityById[e.activityId]);
   const total = entries.reduce((sum, e) => sum + (e.minutes || 0), 0);
-  const hintIndex = hint?.dayId === t.id ? hint.index : -1;
+  const groups = groupByPart(entries, { keepEmpty: true });
 
   const remove = () => {
     if (window.confirm(`Delete “${t.name}”? Weeks using it will have that day cleared.`)) deleteDayTemplate(t.id);
   };
 
   return (
-    <div ref={setNodeRef} className={`card tpl-card${isOver || hintIndex >= 0 ? ' drop-target' : ''}`}>
+    <div className={`card tpl-card${hint?.dayId === t.id ? ' drop-target' : ''}`}>
       <div className="tpl-head">
         <div className="title"><span className="swatch-dot" style={{ background: t.color }} />{t.name}</div>
         <span className="faint small" title={`${entries.length} activities`}>{total ? formatTotal(total) : entries.length || ''}</span>
@@ -131,30 +175,15 @@ function DayCard({ t, onEdit, hint, dragging }) {
         <button className="btn ghost icon sm danger" onClick={remove} aria-label={`Delete ${t.name}`}><TrashIcon width={16} height={16} /></button>
       </div>
       <div className="tpl-body">
-        <SortableContext items={entries.map((e) => `ent:${t.id}:${e.id}`)} strategy={verticalListSortingStrategy}>
-          {entries.map((e, i) => <EntryRow key={e.id} dayId={t.id} entry={e} showHintBefore={hintIndex === i} />)}
-        </SortableContext>
-        {hintIndex >= entries.length && entries.length > 0 && <div className="drop-line" />}
-        {entries.length === 0 && (
-          <div className={`drop-empty${dragging ? ' active' : ''}`}>Drop activities here</div>
-        )}
-        <div className="tpl-foot">
-          <Menu
-            align="left"
-            minWidth={220}
-            trigger={({ open, toggle }) => (
-              <button className="btn ghost sm" onClick={toggle} aria-haspopup="menu" aria-expanded={open}>
-                <PlusIcon width={14} height={14} /> Add activity
-              </button>
-            )}
-          >
-            {(close) => activities.map((a) => (
-              <button key={a.id} className="menu-item" onClick={() => { addEntry(t.id, a.id); close(); }}>
-                <span>{a.emoji}</span>{a.name}
-              </button>
-            ))}
-          </Menu>
-        </div>
+        {groups.map((g) => (
+          <Section
+            key={g.part}
+            dayId={t.id}
+            group={g}
+            dragging={dragging}
+            hintIndex={hint?.dayId === t.id && hint.part === g.part ? hint.index : -1}
+          />
+        ))}
       </div>
     </div>
   );
@@ -163,7 +192,7 @@ function DayCard({ t, onEdit, hint, dragging }) {
 export default function DayTemplates() {
   const {
     dayTemplates, dayTemplateById, activities, activityById, weekTemplates,
-    addDayTemplate, updateDayTemplate, addEntry, reorderEntries, moveEntry,
+    addDayTemplate, updateDayTemplate, addEntry, moveEntry,
   } = useData();
   const [editing, setEditing] = useState(null);
   const [active, setActive] = useState(null); // activity being dragged
@@ -175,15 +204,26 @@ export default function DayTemplates() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const entryIds = (dayId) => (dayTemplateById[dayId]?.items || []).filter((e) => activityById[e.activityId]).map((e) => e.id);
+  const entriesIn = (dayId, part) =>
+    (dayTemplateById[dayId]?.items || []).filter((e) => activityById[e.activityId] && partOf(e) === part);
 
-  /** Where would `over` drop? Returns { dayId, index }. */
+  /** Where would `over` drop? Returns { dayId, part, index } (index within that part). */
   const targetOf = (over) => {
     if (!over) return null;
     const o = parse(over.id);
-    if (o.kind === 'day') return { dayId: o.a, index: entryIds(o.a).length };
-    if (o.kind === 'ent') return { dayId: o.a, index: Math.max(0, entryIds(o.a).indexOf(o.b)) };
+    if (o.kind === 'sec') return { dayId: o.a, part: o.b, index: entriesIn(o.a, o.b).length };
+    if (o.kind === 'ent') {
+      const entry = (dayTemplateById[o.a]?.items || []).find((e) => e.id === o.b);
+      if (!entry) return null;
+      const part = partOf(entry);
+      return { dayId: o.a, part, index: entriesIn(o.a, part).findIndex((e) => e.id === o.b) };
+    }
     return null;
+  };
+
+  const sourceOf = (p) => {
+    const entry = (dayTemplateById[p.a]?.items || []).find((e) => e.id === p.b);
+    return entry ? { dayId: p.a, part: partOf(entry) } : null;
   };
 
   const onDragStart = ({ active: a }) => {
@@ -194,8 +234,10 @@ export default function DayTemplates() {
   const onDragOver = ({ active: a, over }) => {
     const p = parse(a.id);
     const target = targetOf(over);
-    // Same-day reorders animate in place; only show the insertion line for adds and moves.
-    setHint(target && (p.kind === 'pal' || target.dayId !== p.a) ? target : null);
+    const src = p.kind === 'ent' ? sourceOf(p) : null;
+    // Reorders inside one section animate in place; show the insertion line for adds and moves.
+    const samePlace = src && target && src.dayId === target.dayId && src.part === target.part;
+    setHint(target && !samePlace ? target : null);
   };
 
   const onDragEnd = ({ active: a, over }) => {
@@ -205,14 +247,10 @@ export default function DayTemplates() {
     if (!target) return;
     const p = parse(a.id);
     if (p.kind === 'pal') {
-      addEntry(target.dayId, p.a, target.index);
-    } else if (p.kind === 'ent' && p.a === target.dayId) {
-      const ids = entryIds(p.a);
-      const from = ids.indexOf(p.b);
-      const to = parse(over.id).kind === 'ent' ? ids.indexOf(parse(over.id).b) : ids.length - 1;
-      if (from !== to) reorderEntries(p.a, arrayMove(ids, from, to));
+      addEntry(target.dayId, p.a, target.part, target.index);
     } else if (p.kind === 'ent') {
-      moveEntry(p.a, p.b, target.dayId, target.index);
+      if (p.a === target.dayId && parse(over.id).b === p.b) return; // dropped on itself
+      moveEntry(p.a, p.b, target.dayId, target.part, target.index);
     }
   };
 
