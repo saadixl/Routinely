@@ -5,6 +5,8 @@ import Modal from '../components/Modal';
 import Empty from '../components/Empty';
 import ColorPicker from '../components/ColorPicker';
 import SortableList from '../components/SortableList';
+import DurationPicker from '../components/DurationPicker';
+import { formatTotal } from '../lib/duration';
 import { DayIcon, EditIcon, PlusIcon, TrashIcon, XIcon } from '../components/Icons';
 import { randomColor } from '../lib/palette';
 
@@ -69,8 +71,9 @@ function DayTemplateForm({ initial, title, onSubmit, onClose }) {
 }
 
 function DayTemplateCard({ t, onEdit }) {
-  const { activityById, updateDayTemplate, deleteDayTemplate } = useData();
+  const { activityById, updateDayTemplate, deleteDayTemplate, setDuration } = useData();
   const ids = (t.activities || []).filter((id) => activityById[id]);
+  const total = ids.reduce((sum, id) => sum + (t.durations?.[id] || 0), 0);
 
   const remove = () => {
     if (window.confirm(`Delete “${t.name}”? Weeks using it will have that day cleared.`)) deleteDayTemplate(t.id);
@@ -80,7 +83,7 @@ function DayTemplateCard({ t, onEdit }) {
     <div className="card tpl-card">
       <div className="tpl-head">
         <div className="title"><span className="swatch-dot" style={{ background: t.color }} />{t.name}</div>
-        <span className="faint small">{ids.length}</span>
+        <span className="faint small" title={`${ids.length} activities`}>{total ? formatTotal(total) : ids.length}</span>
         <button className="btn ghost icon sm" onClick={onEdit} aria-label={`Edit ${t.name}`}><EditIcon width={16} height={16} /></button>
         <button className="btn ghost icon sm danger" onClick={remove} aria-label={`Delete ${t.name}`}><TrashIcon width={16} height={16} /></button>
       </div>
@@ -97,6 +100,7 @@ function DayTemplateCard({ t, onEdit }) {
                 <>
                   <span>{a.emoji}</span>
                   <span style={{ flex: 1, minWidth: 0 }}>{a.name}</span>
+                  <DurationPicker label={`${a.name} duration`} value={t.durations?.[id] || null} onChange={(m) => setDuration(t.id, id, m)} />
                   <button className="btn ghost icon sm x" onClick={() => updateDayTemplate(t.id, { activities: ids.filter((x) => x !== id) })} aria-label={`Remove ${a.name}`}>
                     <XIcon width={14} height={14} />
                   </button>

@@ -20,3 +20,4 @@ export const SettingsIcon = I(<><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circl
 export const ChevronDown = I(<path d="M6 9l6 6 6-6" />);
 export const MoreIcon = I(<><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>);
 export const UndoIcon = I(<path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3" />);
+export const ClockIcon = I(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>);

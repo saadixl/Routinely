@@ -6,6 +6,7 @@ import {
 import { useData } from '../context/DataContext';
 import DayPicker from './DayPicker';
 import Pill from './Pill';
+import { formatTotal } from '../lib/duration';
 
 function Draggable({ id, dayTemplateId, children }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id, data: { dayTemplateId } });
@@ -22,6 +23,9 @@ function DayRow({ index, row, onAssign }) {
   const { dayTemplateById, activityById } = useData();
   const { setNodeRef, isOver } = useDroppable({ id: `drop:${index}` });
   const valid = row.dayTemplateId && dayTemplateById[row.dayTemplateId] ? row.dayTemplateId : null;
+  const dayMinutes = valid ? Object.entries(dayTemplateById[valid].durations || {})
+    .filter(([a]) => activityById[a] && (dayTemplateById[valid].activities || []).includes(a))
+    .reduce((sum, [, m]) => sum + m, 0) : 0;
 
   const picker = (
     <DayPicker value={valid} onChange={(id) => onAssign([[index, id]])} onReset={row.onReset} placeholder="Rest day" />
@@ -37,6 +41,7 @@ function DayRow({ index, row, onAssign }) {
         {valid ? <Draggable id={`row:${index}`} dayTemplateId={valid}>{picker}</Draggable> : picker}
         {row.changed && <span className="changed">Changed</span>}
       </div>
+      {valid && dayMinutes > 0 && <span className="day-total">{formatTotal(dayMinutes)}</span>}
       {valid && (
         <div className="emoji-strip" aria-hidden="true">
           {(dayTemplateById[valid].activities || []).filter((id) => activityById[id]).slice(0, 6).map((id) => (

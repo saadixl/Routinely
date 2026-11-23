@@ -38,12 +38,12 @@ All data is private to the signed-in user under `users/{uid}` (see `database.rul
 | Path | Shape |
 | --- | --- |
 | `activities/{id}` | `{ name, emoji, color, order, createdAt }` |
-| `dayTemplates/{id}` | `{ name, color, activities: [activityId], order, createdAt }` |
+| `dayTemplates/{id}` | `{ name, color, activities: [activityId], durations: { activityId: minutes }, order, createdAt }` — the same activity can take a different time in each day |
 | `weekTemplates/{id}` | `{ name, days: { 0..6: dayTemplateId } }` — keyed by weekday, 0 = Sunday |
 | `weeks/{YYYY-MM-DD}` | `{ templateId }` — key is the first day of that week |
 | `dayOverrides/{YYYY-MM-DD}` | `dayTemplateId` or `"none"` — a one-off change for that date |
 | `logs/{YYYY-MM-DD}` | `{ activityId: true }` |
-| `snapshots/{YYYY-MM-DD}` | `{ dayTemplateId, name, color, items: [{ id, name, emoji, color }] }` or `{ rest: true }` — the checklist a day had, so editing templates later doesn't rewrite history. Every past day gets one when the app next opens, ticked or not |
+| `snapshots/{YYYY-MM-DD}` | `{ dayTemplateId, name, color, items: [{ id, name, emoji, color, minutes? }] }` or `{ rest: true }` — the checklist a day had, so editing templates later doesn't rewrite history. Every past day gets one when the app next opens, ticked or not |
 | `settings` | `{ weekStartsOn: 0..6, defaultWeekTemplateId, schema, closedThrough }` |
 
 Data from schema 1 (positional week slots, per-week overrides) is migrated automatically on first load.

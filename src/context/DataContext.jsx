@@ -10,12 +10,13 @@ import useTodayKey from '../lib/useToday';
  * Database layout (everything lives under users/{uid}), schema 2:
  *
  *   activities/{id}       { name, emoji, color, order, createdAt }
- *   dayTemplates/{id}     { name, color, activities: [activityId], order, createdAt }
+ *   dayTemplates/{id}     { name, color, activities: [activityId], durations: { activityId: minutes }, order, createdAt }
+ *                         the same activity can have a different duration in each day template
  *   weekTemplates/{id}    { name, days: { 0..6: dayTemplateId }, order, createdAt }   0 = Sunday … 6 = Saturday
  *   weeks/{YYYY-MM-DD}    { templateId }          key = first day of that week (per settings.weekStartsOn)
  *   dayOverrides/{date}   dayTemplateId | "none"  a one-off change for that date
  *   logs/{date}           { activityId: true }
- *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, name, emoji, color }] } | { rest: true }
+ *   snapshots/{date}      { dayTemplateId, name, color, items: [{ id, name, emoji, color, minutes? }] } | { rest: true }
  *                         the checklist as it was on that day, so later template edits don't rewrite history.
  *                         Past days are closed out automatically (see closeOutPastDays), ticked or not.
  *   settings              { weekStartsOn: 0..6, defaultWeekTemplateId, schema, closedThrough: date }
@@ -105,7 +106,8 @@ export function DataProvider({ children }) {
       color: t.color,
       items: (t.activities || []).filter((id) => activityById[id]).map((id) => {
         const { name, emoji, color } = activityById[id];
-        return { id, name, emoji, color };
+        const minutes = t.durations?.[id];
+        return minutes ? { id, name, emoji, color, minutes } : { id, name, emoji, color };
       }),
     };
   };
@@ -119,6 +121,7 @@ export function DataProvider({ children }) {
     dayTemplates.forEach((t) => {
       const list = t.activities || [];
       if (list.includes(id)) updates[`dayTemplates/${t.id}/activities`] = list.filter((a) => a !== id);
+      if (t.durations?.[id]) updates[`dayTemplates/${t.id}/durations/${id}`] = null;
     });
     return multi(updates);
   };
@@ -126,7 +129,18 @@ export function DataProvider({ children }) {
   // ---------- Day templates ----------
   const addDayTemplate = (data) =>
     push(path('dayTemplates'), { activities: [], ...data, order: dayTemplates.length, createdAt: Date.now() });
-  const updateDayTemplate = (id, data) => update(path(`dayTemplates/${id}`), data);
+  /** Saving a day template's activity list also drops durations for activities no longer in it. */
+  const updateDayTemplate = (id, data) => {
+    if (!data.activities) return update(path(`dayTemplates/${id}`), data);
+    const keep = new Set(data.activities);
+    const durations = Object.fromEntries(
+      Object.entries(dayTemplateById[id]?.durations || {}).filter(([a]) => keep.has(a))
+    );
+    return update(path(`dayTemplates/${id}`), { ...data, durations });
+  };
+  /** Minutes for one activity in one day template; null/0 clears it. */
+  const setDuration = (dayTemplateId, activityId, minutes) =>
+    set(path(`dayTemplates/${dayTemplateId}/durations/${activityId}`), minutes > 0 ? Math.round(minutes) : null);
   const deleteDayTemplate = (id) => {
     const updates = { [`dayTemplates/${id}`]: null };
     weekTemplates.forEach((w) => {
@@ -286,6 +300,7 @@ export function DataProvider({ children }) {
     deleteActivity,
     addDayTemplate,
     updateDayTemplate,
+    setDuration,
     deleteDayTemplate,
     addWeekTemplate,
     updateWeekTemplate,
@@ -326,7 +341,8 @@ function useLive(path) {
 // An empty snapshot is never stored (RTDB drops it), so null and "no day" compare equal.
 const sameSnapshot = (a, b) =>
   (a?.dayTemplateId || null) === (b?.dayTemplateId || null) &&
-  (a?.items || []).map((i) => i.id).join() === (b?.items || []).map((i) => i.id).join();
+  (a?.items || []).map((i) => `${i.id}:${i.minutes || ''}`).join() ===
+    (b?.items || []).map((i) => `${i.id}:${i.minutes || ''}`).join();
 
 /**
  * Everything the checklist for one date needs.

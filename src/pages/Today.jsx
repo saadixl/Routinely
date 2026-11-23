@@ -5,6 +5,7 @@ import DayPicker from '../components/DayPicker';
 import useKeyNav from '../lib/useKeyNav';
 import { CheckIcon, ChevronLeft, ChevronRight, SettingsIcon, WeekIcon } from '../components/Icons';
 import { addDays, dateKey, formatLong, parseKey } from '../lib/dates';
+import { formatMinutes, formatTotal, totalMinutes } from '../lib/duration';
 
 function Ring({ done, total }) {
   const size = 56;
@@ -46,6 +47,8 @@ export default function Today() {
   const t = day.dayTemplate;
   const pickerValue = t?.id && dayTemplateById[t.id] ? t.id : null;
   const doneCount = items.filter((a) => log[a.id]).length;
+  const plannedMinutes = totalMinutes(items);
+  const doneMinutes = totalMinutes(items.filter((a) => log[a.id]));
 
   const go = (d) => navigate(dateKey(d) === todayKey ? '/' : `/day/${dateKey(d)}`);
   useKeyNav(() => go(addDays(date, -1)), () => go(addDays(date, 1)));
@@ -82,7 +85,10 @@ export default function Today() {
             <Ring done={doneCount} total={items.length} />
             <div className="progress-meta">
               <span className="big">{items.length ? `${doneCount} of ${items.length}` : 'Free day'}</span>
-              <span className="muted small">{items.length ? (doneCount === items.length ? 'All done' : 'done') : 'Nothing planned'}</span>
+              <span className="muted small">
+                {items.length ? (doneCount === items.length ? 'All done' : 'done') : 'Nothing planned'}
+                {plannedMinutes > 0 && <> · {doneMinutes ? `${formatTotal(doneMinutes)} of ${formatTotal(plannedMinutes)}` : formatTotal(plannedMinutes)} planned</>}
+              </span>
             </div>
             <DayPicker
               align="right"
@@ -123,6 +129,7 @@ export default function Today() {
                       <span className="tick"><CheckIcon width={14} height={14} strokeWidth={3} /></span>
                       <span className="emoji-tile" style={{ '--c': a.color }}>{a.emoji}</span>
                       <span className="name">{a.name}</span>
+                      {a.minutes > 0 && <span className="meta-time">{formatMinutes(a.minutes)}</span>}
                     </button>
                   );
                 })}
